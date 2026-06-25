@@ -1,0 +1,162 @@
+import {
+  Address,
+  authorizeEntry,
+  Keypair,
+  rpc,
+  Transaction,
+  xdr,
+} from "@stellar/stellar-sdk";
+import { STELLAR } from "@/lib/stellar/config";
+
+// The relayer secret lives only on the server. This route signs the
+// `sender.require_auth()` entry and the transaction envelope with the relayer
+// keypair, so the note owner never signs or appears on-chain. Browser code only
+// ever sends the WASM-prepared, already-proven transaction here.
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+type RelayBody = {
+  txXdr?: string;
+  authEntries?: string[];
+  latestLedger?: number;
+};
+
+function entryNeedsRelayer(
+  entry: xdr.SorobanAuthorizationEntry,
+  address: string,
+): boolean {
+  const creds = entry.credentials();
+  if (
+    creds.switch() !== xdr.SorobanCredentialsType.sorobanCredentialsAddress()
+  ) {
+    return false;
+  }
+  const addrAuth = creds.address();
+  if (addrAuth.signature().switch().name !== "scvVoid") return false;
+  return Address.fromScAddress(addrAuth.address()).toString() === address;
+}
+
+function patchAuthEntries(txXdr: string, signedAuthEntries: string[]): string {
+  const env = xdr.TransactionEnvelope.fromXDR(txXdr, "base64");
+  const v1 = env.v1();
+  if (!v1) throw new Error("Unsupported transaction envelope (expected v1)");
+  const auth = signedAuthEntries.map((e) =>
+    xdr.SorobanAuthorizationEntry.fromXDR(e, "base64"),
+  );
+  for (const op of v1.tx().operations()) {
+    const invoke = op.body()?.invokeHostFunctionOp?.();
+    if (!invoke) continue;
+    invoke.auth(auth);
+    return env.toXDR("base64");
+  }
+  throw new Error("No invokeHostFunction operation found to attach auth");
+}
+
+export async function POST(request: Request): Promise<Response> {
+  const secret = process.env.RELAYER_SECRET;
+  if (!secret) {
+    return Response.json(
+      { error: "Relayer is not configured. Run scripts/setup-relayer.mjs." },
+      { status: 503 },
+    );
+  }
+
+  let relayer: Keypair;
+  try {
+    relayer = Keypair.fromSecret(secret);
+  } catch {
+    return Response.json({ error: "Invalid RELAYER_SECRET" }, { status: 500 });
+  }
+  const address = relayer.publicKey();
+
+  let body: RelayBody;
+  try {
+    body = (await request.json()) as RelayBody;
+  } catch {
+    return Response.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  const txXdr = body?.txXdr;
+  const authEntries = body?.authEntries ?? [];
+  const latestLedger = body?.latestLedger ?? 0;
+  if (!txXdr || typeof txXdr !== "string") {
+    return Response.json({ error: "Missing txXdr" }, { status: 400 });
+  }
+  if (!Array.isArray(authEntries)) {
+    return Response.json({ error: "Invalid authEntries" }, { status: 400 });
+  }
+
+  const networkPassphrase = STELLAR.networkPassphrase;
+  const server = new rpc.Server(STELLAR.rpcUrl, {
+    allowHttp: STELLAR.rpcUrl.startsWith("http://"),
+  });
+
+  try {
+    let needsPatch = false;
+    const signed: string[] = [];
+    for (const entryXdr of authEntries) {
+      const entry = xdr.SorobanAuthorizationEntry.fromXDR(entryXdr, "base64");
+      if (!entryNeedsRelayer(entry, address)) {
+        signed.push(entryXdr);
+        continue;
+      }
+      needsPatch = true;
+      let validUntil = Number(
+        entry.credentials().address().signatureExpirationLedger(),
+      );
+      if (!validUntil) {
+        const seq =
+          latestLedger > 0
+            ? latestLedger
+            : (await server.getLatestLedger()).sequence;
+        validUntil = seq + 100;
+      }
+      const authorized = await authorizeEntry(
+        entry,
+        relayer,
+        validUntil,
+        networkPassphrase,
+      );
+      signed.push(authorized.toXDR("base64"));
+    }
+
+    const patchedTxXdr = needsPatch
+      ? patchAuthEntries(txXdr, signed)
+      : txXdr;
+    const tx = new Transaction(patchedTxXdr, networkPassphrase);
+    tx.sign(relayer);
+
+    const send = await server.sendTransaction(tx);
+    const hash = send?.hash;
+    if (send?.status === "ERROR" || !hash) {
+      const detail = send?.errorResult
+        ? ` (${send.errorResult.result().switch().name})`
+        : "";
+      return Response.json(
+        { error: `Relayer submission failed${detail}` },
+        { status: 502 },
+      );
+    }
+
+    for (let i = 0; i < 30; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const res = await server.getTransaction(hash);
+      if (res?.status === "SUCCESS") {
+        return Response.json({ hash });
+      }
+      if (res?.status === "FAILED") {
+        return Response.json(
+          { error: "Transaction failed on-chain", hash },
+          { status: 502 },
+        );
+      }
+    }
+    return Response.json(
+      { error: "Confirmation timed out", hash },
+      { status: 504 },
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return Response.json({ error: message }, { status: 502 });
+  }
+}
