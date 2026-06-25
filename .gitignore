@@ -1,0 +1,4 @@
+/frontend/agent
+
+# Vendored PoC source (build artifacts copied into frontend/public/engine)
+/vendor/
