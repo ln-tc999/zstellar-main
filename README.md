@@ -10,6 +10,7 @@
 
 ---
 
+
 zStellar is a shielded payments dApp built on **Soroban and an on-chain Groth16 verifier on Stellar**. A user deposits a public Stellar asset into a shielded pool, transfers value privately to other users inside the pool, and withdraws back to a public address, all without revealing transfer amounts or the sender to receiver link on-chain. Every zero-knowledge proof is generated **client-side in WebAssembly** (Groth16 over BN254 with a Poseidon2 hash), and private transfers and withdrawals are pushed through a **server-side relayer** so the note owner's address never appears on-chain. zStellar builds on **Nethermind's Stellar Private Payments PoC** and runs on **Stellar Testnet**.
 
 > **One pool. Three flows. One rule: your balance and your counterparties stay private.**
