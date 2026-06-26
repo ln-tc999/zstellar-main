@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
-import { FaucetButton, ReceiveButton, WalletButton } from "@/features/wallet";
+import { WalletButton } from "@/features/wallet";
+import { NavMenu } from "./NavMenu";
 
 export function Navbar() {
   return (
@@ -14,15 +15,14 @@ export function Navbar() {
           priority
           className="h-8 w-8 rounded-lg object-contain"
         />
-        <span className="text-xl font-semibold tracking-tight text-white">
+        <span className="text-xl font-semibold tracking-tight text-fg">
           zStellar
         </span>
       </Link>
 
       <div className="flex items-center gap-3">
-        <ReceiveButton />
-        <FaucetButton />
         <WalletButton />
+        <NavMenu />
       </div>
     </header>
   );
