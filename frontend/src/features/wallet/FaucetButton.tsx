@@ -39,7 +39,7 @@ export function FaucetButton() {
           setMessage(null);
           setOpen(true);
         }}
-        className="flex h-10 cursor-pointer items-center gap-2 rounded-full border border-white/15 px-4 text-sm font-medium text-white transition-colors hover:bg-white/5"
+        className="flex h-10 cursor-pointer items-center gap-2 rounded-full border border-line-strong px-4 text-sm font-medium text-fg transition-colors hover:bg-fill"
       >
         <TbDroplet className="h-4 w-4" />
         Faucet
@@ -53,7 +53,7 @@ export function FaucetButton() {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
             onClick={() => setOpen(false)}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-overlay p-4"
           >
             <motion.div
               initial={{ opacity: 0, scale: 0.96, y: 8 }}
@@ -61,33 +61,33 @@ export function FaucetButton() {
               exit={{ opacity: 0, scale: 0.96, y: 8 }}
               transition={{ duration: 0.18, ease: "easeOut" }}
               onClick={(event) => event.stopPropagation()}
-              className="w-full max-w-md overflow-hidden rounded-2xl border border-white/10 bg-zinc-900 p-6 shadow-2xl shadow-black/60"
+              className="w-full max-w-md overflow-hidden rounded-2xl border border-line bg-panel p-6 shadow-2xl shadow-[color:var(--shadow)]"
             >
               <div className="flex items-center justify-between">
-                <h2 className="flex items-center gap-2 text-lg font-semibold text-white">
+                <h2 className="flex items-center gap-2 text-lg font-semibold text-fg">
                   <TbDroplet className="h-5 w-5" />
                   Claim Faucet
                 </h2>
                 <button
                   type="button"
                   onClick={() => setOpen(false)}
-                  className="cursor-pointer text-zinc-400 transition-colors hover:text-white"
+                  className="cursor-pointer text-muted transition-colors hover:text-fg"
                 >
                   <TbX className="h-5 w-5" />
                 </button>
               </div>
 
-              <p className="mt-3 text-sm leading-6 text-zinc-400">
-                Get free testnet XLM from the Stellar Friendbot to try zStellar. No
-                real assets, testnet only.
+              <p className="mt-3 text-sm leading-6 text-muted">
+                Get free testnet XLM from the Stellar Friendbot to try zStellar.
+                No real assets, testnet only.
               </p>
 
               {short ? (
-                <div className="mt-4 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-zinc-300">
+                <div className="mt-4 rounded-xl border border-line bg-fill px-4 py-3 text-sm text-muted">
                   {short}
                 </div>
               ) : (
-                <div className="mt-4 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-zinc-500">
+                <div className="mt-4 rounded-xl border border-line bg-fill px-4 py-3 text-sm text-faint">
                   Connect your wallet to claim.
                 </div>
               )}
@@ -96,13 +96,13 @@ export function FaucetButton() {
                 type="button"
                 onClick={claim}
                 disabled={claiming || !wallet.address}
-                className="mt-4 flex h-12 w-full cursor-pointer items-center justify-center rounded-full bg-white text-base font-semibold text-black transition-colors hover:bg-zinc-200 disabled:opacity-60"
+                className="mt-4 flex h-12 w-full cursor-pointer items-center justify-center rounded-full bg-btn text-base font-semibold text-btn-fg transition-colors hover:bg-btn-hover disabled:opacity-60"
               >
                 {claiming ? "Claiming..." : "Claim 10,000 XLM"}
               </button>
 
               {message ? (
-                <p className="mt-3 text-center text-xs text-zinc-400">{message}</p>
+                <p className="mt-3 text-center text-xs text-muted">{message}</p>
               ) : null}
             </motion.div>
           </motion.div>
