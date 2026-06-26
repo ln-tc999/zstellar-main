@@ -20,32 +20,7 @@ import {
 } from "@/engine";
 import { useWalletContext } from "@/features/wallet";
 import { TxModal, type TxPhase } from "./TxModal";
-
-const TABS = [
-  {
-    id: "deposit",
-    label: "Shield",
-    lead: "You're shielding",
-    cta: "Shield",
-    hint: "Public asset in, private notes out. Your in-pool balance stays hidden.",
-  },
-  {
-    id: "transfer",
-    label: "Private Transfer",
-    lead: "You're transferring privately",
-    cta: "Send privately",
-    hint: "Amount and recipient stay hidden on-chain.",
-  },
-  {
-    id: "withdraw",
-    label: "Private Withdraw",
-    lead: "You're withdrawing privately",
-    cta: "Withdraw",
-    hint: "Spend private notes to a public address. The link stays hidden.",
-  },
-] as const;
-
-type TabId = (typeof TABS)[number]["id"];
+import { ActionTabs, TABS, useActionTab } from "./tabs";
 
 const TECH = ["Groth16", "BN254", "Poseidon2"];
 
@@ -64,7 +39,7 @@ const TOKENS = [
     symbol: "XLM",
     name: "Stellar Lumens",
     logo: "/Assets/Images/Logo-Coin/stellar-logo.svg",
-    imgClass: "invert",
+    imgClass: "dark:invert",
   },
   {
     symbol: "USDC",
@@ -75,7 +50,7 @@ const TOKENS = [
 ] as const;
 
 export function ActionPanel() {
-  const [active, setActive] = useState<TabId>("deposit");
+  const { active } = useActionTab();
   const [amount, setAmount] = useState("");
   const [recipient, setRecipient] = useState("");
   const [assetIndex, setAssetIndex] = useState(0);
@@ -154,7 +129,11 @@ export function ActionPanel() {
 
       let hashes: string[] | null = null;
       if (active === "deposit") {
-        hashes = await depositWithAutoRegister(wallet.address, amount, onStatus);
+        hashes = await depositWithAutoRegister(
+          wallet.address,
+          amount,
+          onStatus,
+        );
       } else if (active === "transfer") {
         const [noteKey, encKey] = recipient.split(":");
         if (!noteKey || !encKey) {
@@ -194,8 +173,7 @@ export function ActionPanel() {
         setPhase("error");
       }
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Action failed";
+      const message = error instanceof Error ? error.message : "Action failed";
       setStatus(message);
       setErrorMsg(message);
       setPhase("error");
@@ -206,25 +184,10 @@ export function ActionPanel() {
 
   return (
     <section id="action" className="w-full max-w-[560px]">
-      <div className="mb-6 flex items-center justify-center gap-1">
-        {TABS.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            onClick={() => setActive(item.id)}
-            className={`cursor-pointer rounded-full px-5 py-2 text-[15px] font-medium transition-colors ${
-              active === item.id
-                ? "bg-white/10 text-white"
-                : "text-zinc-500 hover:text-white"
-            }`}
-          >
-            {item.label}
-          </button>
-        ))}
-      </div>
+      <ActionTabs vertical={false} className="mb-6 justify-center lg:hidden" />
 
-      <div className="relative z-30 rounded-2xl border border-white/10 bg-zinc-900/85 p-6 shadow-2xl shadow-black/50">
-        <p className="text-[15px] font-semibold text-white">{tab.lead}</p>
+      <div className="relative z-30 rounded-2xl border border-line bg-surface p-6 shadow-2xl shadow-[color:var(--shadow)] backdrop-blur-sm">
+        <p className="text-[15px] font-semibold text-fg">{tab.lead}</p>
 
         <div className="mt-2 flex items-center justify-between gap-4">
           <input
@@ -232,12 +195,12 @@ export function ActionPanel() {
             placeholder="0"
             value={amount}
             onChange={(event) => setAmount(event.target.value)}
-            className="w-full bg-transparent text-5xl font-medium tracking-tight text-white outline-none placeholder:text-zinc-500"
+            className="w-full bg-transparent text-5xl font-medium tracking-tight text-fg outline-none placeholder:text-faint"
           />
           <button
             type="button"
             onClick={() => setMenuOpen(true)}
-            className="flex shrink-0 cursor-pointer items-center gap-2 rounded-full border border-white/10 bg-white/10 py-1.5 pl-1.5 pr-3 text-[15px] font-bold text-white transition-colors hover:bg-white/15"
+            className="flex shrink-0 cursor-pointer items-center gap-2 rounded-full border border-line bg-fill-2 py-1.5 pl-1.5 pr-3 text-[15px] font-bold text-fg transition-colors hover:bg-fill-3"
           >
             <Image
               src={asset.logo}
@@ -247,11 +210,11 @@ export function ActionPanel() {
               className={`h-7 w-7 object-contain ${asset.imgClass}`}
             />
             {asset.symbol}
-            <TbChevronDown className="h-4 w-4 text-zinc-400" />
+            <TbChevronDown className="h-4 w-4 text-muted" />
           </button>
         </div>
 
-        <div className="mt-3 flex items-center justify-between gap-3 text-sm text-zinc-400">
+        <div className="mt-3 flex items-center justify-between gap-3 text-sm text-muted">
           <span className="hidden items-center gap-1.5 sm:flex">
             <Image
               src="/Assets/Images/Logo-Brands/zStellar-logo.png"
@@ -260,11 +223,11 @@ export function ActionPanel() {
               height={16}
               className="h-4 w-4 rounded object-contain"
             />
-            <span className="text-[11px] text-zinc-500">powered by</span>
+            <span className="text-[11px] text-faint">powered by</span>
             {TECH.map((item) => (
               <span
                 key={item}
-                className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] text-zinc-400"
+                className="rounded-full border border-line bg-fill px-2 py-0.5 text-[11px] text-muted"
               >
                 {item}
               </span>
@@ -276,7 +239,7 @@ export function ActionPanel() {
             <button
               type="button"
               onClick={() => setAmount(String(Number(balance) || 0))}
-              className="cursor-pointer font-medium text-white"
+              className="cursor-pointer font-medium text-fg"
             >
               Max
             </button>
@@ -288,39 +251,39 @@ export function ActionPanel() {
             placeholder={recipientLabel}
             value={recipient}
             onChange={(event) => setRecipient(event.target.value)}
-            className="mt-4 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-white/30"
+            className="mt-4 w-full rounded-xl border border-line bg-fill px-4 py-3 text-sm text-fg outline-none placeholder:text-dim focus:border-line-focus"
           />
         ) : null}
 
         {showRecipient && RELAYER_READY ? (
-          <div className="mt-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+          <div className="mt-3 rounded-xl border border-line bg-fill px-4 py-3">
             <div className="flex items-center justify-between gap-3">
-              <span className="flex items-center gap-2 text-sm font-medium text-white">
+              <span className="flex items-center gap-2 text-sm font-medium text-fg">
                 <TbShieldLock className="h-4 w-4 text-emerald-400" />
                 Private relay active
               </span>
-              <span className="font-mono text-xs text-zinc-400">
+              <span className="font-mono text-xs text-muted">
                 {RELAYER_ADDRESS.slice(0, 6)}...{RELAYER_ADDRESS.slice(-6)}
               </span>
             </div>
-            <p className="mt-2 text-[11px] leading-5 text-zinc-500">
+            <p className="mt-2 text-[11px] leading-5 text-faint">
               Our relayer submits on-chain, so your address never appears. You
               sign nothing and pay no fee for submission.
             </p>
           </div>
         ) : showRecipient ? (
           <div className="mt-3 rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3">
-            <p className="text-[11px] leading-5 text-amber-300/80">
+            <p className="text-[11px] leading-5 text-amber-600 dark:text-amber-300/80">
               Relayer not set up. Run{" "}
-              <span className="font-mono">scripts/setup-relayer.mjs</span> so your
-              address stays hidden on submit.
+              <span className="font-mono">scripts/setup-relayer.mjs</span> so
+              your address stays hidden on submit.
             </p>
           </div>
         ) : null}
       </div>
 
-      <div className="relative z-10 mt-3 flex items-center justify-between rounded-2xl border border-white/10 bg-zinc-900/85 px-6 py-4 text-[15px] shadow-2xl shadow-black/50">
-        <span className="flex items-center gap-2 text-zinc-400">
+      <div className="relative z-10 mt-3 flex items-center justify-between rounded-2xl border border-line bg-surface px-6 py-4 text-[15px] shadow-2xl shadow-[color:var(--shadow)] backdrop-blur-sm">
+        <span className="flex items-center gap-2 text-muted">
           <Image
             src="/Assets/Images/Logo-Brands/zStellar-logo.png"
             alt="zStellar"
@@ -330,14 +293,14 @@ export function ActionPanel() {
           />
           Shielded Balance
         </span>
-        <span className="flex items-center gap-2 font-semibold text-white">
+        <span className="flex items-center gap-2 font-semibold text-fg">
           {shielded != null ? formatXlm(stroopsToXlm(shielded)) : "0"} XLM
           <Image
             src="/Assets/Images/Logo-Coin/stellar-logo.svg"
             alt="XLM"
             width={16}
             height={16}
-            className="h-4 w-4 object-contain invert"
+            className="h-4 w-4 object-contain dark:invert"
           />
         </span>
       </div>
@@ -347,7 +310,7 @@ export function ActionPanel() {
           type="button"
           onClick={runAction}
           disabled={busy}
-          className="mt-4 flex h-15 w-full cursor-pointer items-center justify-center rounded-full bg-white text-lg font-semibold text-black transition-colors hover:bg-zinc-200 disabled:opacity-70"
+          className="mt-4 flex h-15 w-full cursor-pointer items-center justify-center rounded-full bg-btn text-lg font-semibold text-btn-fg transition-colors hover:bg-btn-hover disabled:opacity-70"
         >
           {busy ? "Working..." : tab.cta}
         </button>
@@ -356,7 +319,7 @@ export function ActionPanel() {
           type="button"
           onClick={wallet.connect}
           disabled={wallet.connecting}
-          className="mt-4 flex h-15 w-full cursor-pointer items-center justify-center rounded-full bg-white text-lg font-semibold text-black transition-colors hover:bg-zinc-200 disabled:opacity-70"
+          className="mt-4 flex h-15 w-full cursor-pointer items-center justify-center rounded-full bg-btn text-lg font-semibold text-btn-fg transition-colors hover:bg-btn-hover disabled:opacity-70"
         >
           {wallet.connecting ? "Connecting..." : "Connect Wallet"}
         </button>
@@ -370,16 +333,16 @@ export function ActionPanel() {
             href={`https://stellar.expert/explorer/testnet/tx/${txHash}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-3 flex items-center justify-center gap-1 text-center text-xs text-zinc-300 transition-colors hover:text-white"
+            className="mt-3 flex items-center justify-center gap-1 text-center text-xs text-muted transition-colors hover:text-fg"
           >
             View transaction
             <TbExternalLink className="h-3 w-3" />
           </a>
         ) : status ? (
-          <p className="mt-3 text-center text-xs text-zinc-400">{status}</p>
+          <p className="mt-3 text-center text-xs text-muted">{status}</p>
         ) : null
       ) : (
-        <p className="mt-4 text-center text-xs text-zinc-400">{tab.hint}</p>
+        <p className="mt-4 text-center text-xs text-muted">{tab.hint}</p>
       )}
 
       <AnimatePresence>
@@ -390,7 +353,7 @@ export function ActionPanel() {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
             onClick={() => setMenuOpen(false)}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-overlay p-4"
           >
             <motion.div
               initial={{ opacity: 0, scale: 0.96, y: 8 }}
@@ -398,27 +361,27 @@ export function ActionPanel() {
               exit={{ opacity: 0, scale: 0.96, y: 8 }}
               transition={{ duration: 0.18, ease: "easeOut" }}
               onClick={(event) => event.stopPropagation()}
-              className="w-full max-w-md overflow-hidden rounded-2xl border border-white/10 bg-zinc-900 shadow-2xl shadow-black/60"
+              className="w-full max-w-md overflow-hidden rounded-2xl border border-line bg-panel shadow-2xl shadow-[color:var(--shadow)]"
             >
               <div className="flex items-center justify-between px-5 py-4">
-                <h2 className="text-lg font-semibold text-white">Select</h2>
+                <h2 className="text-lg font-semibold text-fg">Select</h2>
                 <button
                   type="button"
                   onClick={() => setMenuOpen(false)}
-                  className="cursor-pointer text-zinc-400 transition-colors hover:text-white"
+                  className="cursor-pointer text-muted transition-colors hover:text-fg"
                 >
                   <TbX className="h-5 w-5" />
                 </button>
               </div>
 
               <div className="px-5 pb-4">
-                <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 focus-within:border-white/30">
-                  <TbSearch className="h-4 w-4 text-zinc-500" />
+                <div className="flex items-center gap-2 rounded-xl border border-line bg-fill px-3 py-2.5 focus-within:border-line-focus">
+                  <TbSearch className="h-4 w-4 text-faint" />
                   <input
                     value={query}
                     onChange={(event) => setQuery(event.target.value)}
                     placeholder="Search by token symbol or name"
-                    className="w-full bg-transparent text-sm text-white outline-none placeholder:text-zinc-500"
+                    className="w-full bg-transparent text-sm text-fg outline-none placeholder:text-faint"
                   />
                 </div>
               </div>
@@ -433,7 +396,7 @@ export function ActionPanel() {
                       setMenuOpen(false);
                       setQuery("");
                     }}
-                    className="flex w-full cursor-pointer items-center justify-between gap-3 rounded-xl px-3 py-3 text-left transition-colors hover:bg-white/5"
+                    className="flex w-full cursor-pointer items-center justify-between gap-3 rounded-xl px-3 py-3 text-left transition-colors hover:bg-fill"
                   >
                     <span className="flex items-center gap-3">
                       <Image
@@ -444,26 +407,24 @@ export function ActionPanel() {
                         className={`h-9 w-9 object-contain ${token.imgClass}`}
                       />
                       <span className="flex flex-col">
-                        <span className="text-[15px] font-semibold text-white">
+                        <span className="text-[15px] font-semibold text-fg">
                           {token.symbol}
                         </span>
-                        <span className="text-xs text-zinc-500">
-                          {token.name}
-                        </span>
+                        <span className="text-xs text-faint">{token.name}</span>
                       </span>
                     </span>
                     <span className="flex flex-col items-end">
-                      <span className="text-[15px] font-medium text-white">
+                      <span className="text-[15px] font-medium text-fg">
                         {token.symbol === "XLM" ? formatXlm(balance) : "0"}
                       </span>
-                      <span className="text-xs text-zinc-500">
+                      <span className="text-xs text-faint">
                         {token.symbol === "XLM" && connected ? "Testnet" : "--"}
                       </span>
                     </span>
                   </button>
                 ))}
                 {filteredTokens.length === 0 ? (
-                  <p className="px-3 py-6 text-center text-sm text-zinc-500">
+                  <p className="px-3 py-6 text-center text-sm text-faint">
                     No tokens found.
                   </p>
                 ) : null}
