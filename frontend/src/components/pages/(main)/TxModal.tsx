@@ -23,7 +23,11 @@ const STEPS = [
     stages: ["load_state", "prove", "compute", "witness"],
   },
   { key: "sign", label: "Sign in wallet", stages: ["sign_auth", "sign_tx"] },
-  { key: "submit", label: "Submitting on-chain", stages: ["submit", "confirm"] },
+  {
+    key: "submit",
+    label: "Submitting on-chain",
+    stages: ["submit", "confirm"],
+  },
 ] as const;
 
 function activeStep(stage: string): number {
@@ -63,7 +67,7 @@ export function TxModal({
           exit={{ opacity: 0 }}
           transition={{ duration: 0.15 }}
           onClick={phase === "running" ? undefined : onClose}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-overlay p-4"
         >
           <motion.div
             initial={{ opacity: 0, scale: 0.96, y: 8 }}
@@ -71,11 +75,11 @@ export function TxModal({
             exit={{ opacity: 0, scale: 0.96, y: 8 }}
             transition={{ duration: 0.18, ease: "easeOut" }}
             onClick={(event) => event.stopPropagation()}
-            className="w-full max-w-sm overflow-hidden rounded-2xl border border-white/10 bg-zinc-900 p-6 shadow-2xl shadow-black/60"
+            className="w-full max-w-sm overflow-hidden rounded-2xl border border-line bg-panel p-6 shadow-2xl shadow-[color:var(--shadow)]"
           >
             {phase === "running" ? (
               <div>
-                <h2 className="text-lg font-semibold text-white">{title}</h2>
+                <h2 className="text-lg font-semibold text-fg">{title}</h2>
                 <div className="mt-5 flex flex-col gap-4">
                   {STEPS.map((step, index) => {
                     const done = index < active;
@@ -85,10 +89,10 @@ export function TxModal({
                         <span
                           className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[11px] ${
                             done
-                              ? "border-white bg-white text-black"
+                              ? "border-fg bg-fg text-panel"
                               : current
-                                ? "border-white text-white"
-                                : "border-white/15 text-zinc-600"
+                                ? "border-fg text-fg"
+                                : "border-line-strong text-dim"
                           }`}
                         >
                           {done ? (
@@ -102,13 +106,13 @@ export function TxModal({
                         <div className="flex min-w-0 flex-col">
                           <span
                             className={`text-sm ${
-                              current || done ? "text-white" : "text-zinc-500"
+                              current || done ? "text-fg" : "text-faint"
                             }`}
                           >
                             {step.label}
                           </span>
                           {current && message ? (
-                            <span className="truncate text-xs text-zinc-400">
+                            <span className="truncate text-xs text-muted">
                               {message}
                             </span>
                           ) : null}
@@ -121,10 +125,10 @@ export function TxModal({
             ) : phase === "success" ? (
               <div className="flex flex-col items-center text-center">
                 <TbCircleCheck className="h-14 w-14 text-emerald-400" />
-                <h2 className="mt-3 text-lg font-semibold text-white">
+                <h2 className="mt-3 text-lg font-semibold text-fg">
                   {title} complete
                 </h2>
-                <p className="mt-1 text-sm text-zinc-400">
+                <p className="mt-1 text-sm text-muted">
                   Confirmed on Stellar testnet.
                 </p>
                 {txHash ? (
@@ -132,7 +136,7 @@ export function TxModal({
                     href={`https://stellar.expert/explorer/testnet/tx/${txHash}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="mt-4 flex items-center gap-1 text-sm text-zinc-300 transition-colors hover:text-white"
+                    className="mt-4 flex items-center gap-1 text-sm text-muted transition-colors hover:text-fg"
                   >
                     View transaction <TbExternalLink className="h-3.5 w-3.5" />
                   </a>
@@ -140,7 +144,7 @@ export function TxModal({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="mt-6 h-11 w-full cursor-pointer rounded-full bg-white text-sm font-semibold text-black transition-colors hover:bg-zinc-200"
+                  className="mt-6 h-11 w-full cursor-pointer rounded-full bg-btn text-sm font-semibold text-btn-fg transition-colors hover:bg-btn-hover"
                 >
                   Done
                 </button>
@@ -148,16 +152,16 @@ export function TxModal({
             ) : (
               <div className="flex flex-col items-center text-center">
                 <TbAlertTriangle className="h-14 w-14 text-red-400" />
-                <h2 className="mt-3 text-lg font-semibold text-white">
+                <h2 className="mt-3 text-lg font-semibold text-fg">
                   {title} failed
                 </h2>
-                <p className="mt-2 max-h-28 overflow-auto text-sm leading-5 text-zinc-400">
+                <p className="mt-2 max-h-28 overflow-auto text-sm leading-5 text-muted">
                   {error ?? "Something went wrong."}
                 </p>
                 <button
                   type="button"
                   onClick={onClose}
-                  className="mt-6 h-11 w-full cursor-pointer rounded-full bg-white text-sm font-semibold text-black transition-colors hover:bg-zinc-200"
+                  className="mt-6 h-11 w-full cursor-pointer rounded-full bg-btn text-sm font-semibold text-btn-fg transition-colors hover:bg-btn-hover"
                 >
                   Close
                 </button>
