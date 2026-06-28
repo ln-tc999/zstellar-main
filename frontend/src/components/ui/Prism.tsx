@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useEffect, useRef } from "react";
-import { Renderer, Triangle, Program, Mesh } from "ogl";
+import { Mesh, Program, Renderer, Triangle } from "ogl";
+import type React from "react";
+import { useEffect, useRef } from "react";
 
 type PrismProps = {
   height?: number;
@@ -372,7 +373,12 @@ const Prism: React.FC<PrismProps> = ({
         yaw = lerp(prevYaw, targetYaw, INERT);
         pitch = lerp(prevPitch, targetPitch, INERT);
         roll = lerp(prevRoll, 0, 0.1);
-        program.uniforms.uRot.value = setMat3FromEuler(yaw, pitch, roll, rotBuf);
+        program.uniforms.uRot.value = setMat3FromEuler(
+          yaw,
+          pitch,
+          roll,
+          rotBuf,
+        );
 
         if (NOISE_IS_ZERO) {
           const settled =
@@ -386,7 +392,12 @@ const Prism: React.FC<PrismProps> = ({
         yaw = tScaled * wY;
         pitch = Math.sin(tScaled * wX + phX) * 0.6;
         roll = Math.sin(tScaled * wZ + phZ) * 0.5;
-        program.uniforms.uRot.value = setMat3FromEuler(yaw, pitch, roll, rotBuf);
+        program.uniforms.uRot.value = setMat3FromEuler(
+          yaw,
+          pitch,
+          roll,
+          rotBuf,
+        );
         if (TS < 1e-6) continueRAF = false;
       } else {
         rotBuf[0] = 1;
@@ -446,7 +457,8 @@ const Prism: React.FC<PrismProps> = ({
         if (io) io.disconnect();
         delete (container as PrismContainer).__prismIO;
       }
-      if (gl.canvas.parentElement === container) container.removeChild(gl.canvas);
+      if (gl.canvas.parentElement === container)
+        container.removeChild(gl.canvas);
     };
   }, [
     height,
