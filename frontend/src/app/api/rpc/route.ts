@@ -133,13 +133,28 @@ export async function POST(request: Request): Promise<Response> {
       ? HISTORICAL_ASP_EVENTS.filter((e) => e.ledger >= startLedger)
       : [];
 
+    const latestLedgerVal = globalMaxLedger || 3328600;
+
+    // Determine the cursor paging token
+    let cursorVal = "";
+    if (events.length > 0) {
+      cursorVal = events[events.length - 1].pagingToken;
+    } else {
+      // Format startLedger as a 19-digit padded paging token
+      cursorVal = `${String(startLedger).padStart(19, "0")}-0000000000`;
+    }
+
     return new Response(
       JSON.stringify({
         jsonrpc: "2.0",
         id: json?.id || null,
         result: {
-          latestLedger: globalMaxLedger || 3328600,
           events,
+          cursor: cursorVal,
+          latestLedger: latestLedgerVal,
+          oldestLedger: 3157974,
+          latestLedgerCloseTime: String(Math.floor(Date.now() / 1000)),
+          oldestLedgerCloseTime: "1782052423",
         },
       }),
       {
