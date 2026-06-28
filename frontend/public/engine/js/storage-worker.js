@@ -994,8 +994,17 @@ function __wbg_get_imports() {
     },
     __wbg_href_53712054c453ff9f: () =>
       handleError((arg0, arg1) => {
-        const obj = getObject(arg1) || (typeof window !== "undefined" ? window.location : null) || (typeof self !== "undefined" ? self.location : null) || {};
-        const ret = obj.href || "";
+        let obj = getObject(arg1);
+        let ret = obj ? obj.href : null;
+        if (!ret) {
+          const loc =
+            (typeof window !== "undefined" ? window.location : null) ||
+            (typeof self !== "undefined" ? self.location : null);
+          ret = loc ? loc.href || loc.origin : null;
+        }
+        if (!ret) {
+          ret = "https://zstellar-app.vercel.app/";
+        }
         const ptr1 = passStringToWasm0(
           ret,
           wasm.__wbindgen_export,
