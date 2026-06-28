@@ -1085,7 +1085,20 @@ function __wbg_get_imports() {
           const ret = new URL(relative, base);
           return addHeapObject(ret);
         } catch (e) {
-          console.warn("[zStellar URL Fix] relative:", relative, "base:", base, "error:", e);
+          console.warn(
+            "[zStellar URL Fix] relative args:",
+            arg0,
+            arg1,
+            "base args:",
+            arg2,
+            arg3,
+            "relative:",
+            JSON.stringify(relative),
+            "base:",
+            JSON.stringify(base),
+            "error:",
+            e,
+          );
           try {
             const fallbackBase =
               (typeof window !== "undefined" ? window.location.origin : null) ||
