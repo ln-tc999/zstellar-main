@@ -1,0 +1,10 @@
+{
+  "functions": {
+    "src/app/api/rpc/route.ts": {
+      "maxDuration": 30
+    },
+    "src/app/api/relay/route.ts": {
+      "maxDuration": 30
+    }
+  }
+}
