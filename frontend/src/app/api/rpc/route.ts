@@ -12,15 +12,16 @@ let globalMaxLedger = 0;
 // that were inserted in the pruned ledger range (3157974 to 3256331).
 // This guarantees that the indexer can sync successfully from the deployment ledger.
 //
-// Every event object must include operationIndex, transactionIndex, and txHash
-// as they are required fields in the Soroban events structure.
+// Ledger sequences and event IDs have been adjusted based on actual on-chain coordinates
+// to match the Soroban RPC format exactly. Leaf 5 coordinates match the live RPC
+// response exactly so the client can correctly de-duplicate it upon transition to the upstream.
 const HISTORICAL_ASP_EVENTS = [
   {
     type: "contract",
-    ledger: 3157974,
+    ledger: 3158062,
     ledgerClosedAt: "2026-06-26T12:24:11Z",
-    id: "0013563773008756737-0000000000",
-    pagingToken: "0013563773008756737-0000000000",
+    id: "0013563773008756736-0000000000",
+    pagingToken: "0013563773008756736-0000000000",
     contractId: "CDD7LJJDO35WCKZK63Q5ADGT76K7DEEL6YHB4DELMLJ4CPTSCALFXE7Q",
     topic: ["AAAADwAAAAlMZWFmQWRkZWQAAAA="],
     value:
@@ -32,10 +33,10 @@ const HISTORICAL_ASP_EVENTS = [
   },
   {
     type: "contract",
-    ledger: 3157989,
+    ledger: 3158076,
     ledgerClosedAt: "2026-06-26T12:25:00Z",
-    id: "0013563833138302977-0000000000",
-    pagingToken: "0013563833138302977-0000000000",
+    id: "0013563833138302976-0000000000",
+    pagingToken: "0013563833138302976-0000000000",
     contractId: "CDD7LJJDO35WCKZK63Q5ADGT76K7DEEL6YHB4DELMLJ4CPTSCALFXE7Q",
     topic: ["AAAADwAAAAlMZWFmQWRkZWQAAAA="],
     value:
@@ -47,10 +48,10 @@ const HISTORICAL_ASP_EVENTS = [
   },
   {
     type: "contract",
-    ledger: 3158043,
+    ledger: 3158130,
     ledgerClosedAt: "2026-06-26T12:28:00Z",
-    id: "0013564065066536961-0000000000",
-    pagingToken: "0013564065066536961-0000000000",
+    id: "0013564065066536960-0000000000",
+    pagingToken: "0013564065066536960-0000000000",
     contractId: "CDD7LJJDO35WCKZK63Q5ADGT76K7DEEL6YHB4DELMLJ4CPTSCALFXE7Q",
     topic: ["AAAADwAAAAlMZWFmQWRkZWQAAAA="],
     value:
@@ -62,10 +63,10 @@ const HISTORICAL_ASP_EVENTS = [
   },
   {
     type: "contract",
-    ledger: 3158291,
+    ledger: 3158379,
     ledgerClosedAt: "2026-06-26T12:35:00Z",
-    id: "0013565134513397761-0000000000",
-    pagingToken: "0013565134513397761-0000000000",
+    id: "0013565134513397760-0000000000",
+    pagingToken: "0013565134513397760-0000000000",
     contractId: "CDD7LJJDO35WCKZK63Q5ADGT76K7DEEL6YHB4DELMLJ4CPTSCALFXE7Q",
     topic: ["AAAADwAAAAlMZWFmQWRkZWQAAAA="],
     value:
@@ -77,14 +78,14 @@ const HISTORICAL_ASP_EVENTS = [
   },
   {
     type: "contract",
-    ledger: 3158585,
+    ledger: 3158673,
     ledgerClosedAt: "2026-06-26T12:45:00Z",
-    id: "0013566397233778689-0000000000",
-    pagingToken: "0013566397233778689-0000000000",
+    id: "0013566397233778688-0000000000",
+    pagingToken: "0013566397233778688-0000000000",
     contractId: "CDD7LJJDO35WCKZK63Q5ADGT76K7DEEL6YHB4DELMLJ4CPTSCALFXE7Q",
     topic: ["AAAADwAAAAlMZWFmQWRkZWQAAAA="],
     value:
-      "AAAAEQAAAAEAAAADAAAADwAAAAVpbmRleAAAAAAAAAUAAAAAAAAABAAAAA8AAAAEbGVhZgAAAAsPhJytjG1OEBI1Y6SUF0bCJMeApeIT5o6sr9UJB6gw6QAAAA8AAAAEcm9vdAAAAAstgoQd4PTdGL7dEXteHTf7UaxiXtLLCQpR/fL+6DXUYA==",
+      "AAAAEQAAAAEAAAADAAAADwAAAAVpbmRleAAAAAAAAAUAAAAAAAAABAAAAA8AAAAEbGVhZgAAAAsPhJytjG1OEBI1Y6SUF0bCJMeApeIT5o6sr9UJB6gw6QAAAA8AAAAEcm9vdAAAAAsLTtPWizVY0z0bnmkxNY4DtspQfuTufZmaZv4Qg2SAjA==",
     inSuccessfulContractCall: true,
     operationIndex: 0,
     transactionIndex: 0,
@@ -92,22 +93,22 @@ const HISTORICAL_ASP_EVENTS = [
   },
   {
     type: "contract",
-    ledger: 3256331,
-    ledgerClosedAt: "2026-06-27T08:15:00Z",
-    id: "0013985839444934657-0000000000",
-    pagingToken: "0013985839444934657-0000000000",
+    ledger: 3256332,
+    ledgerClosedAt: "2026-06-24T10:06:09Z",
+    id: "0013985839444934656-0000000000",
+    pagingToken: "0013985839444934656-0000000000",
     contractId: "CDD7LJJDO35WCKZK63Q5ADGT76K7DEEL6YHB4DELMLJ4CPTSCALFXE7Q",
     topic: ["AAAADwAAAAlMZWFmQWRkZWQAAAA="],
     value:
       "AAAAEQAAAAEAAAADAAAADwAAAAVpbmRleAAAAAAAAAUAAAAAAAAABQAAAA8AAAAEbGVhZgAAAAstNvG2gPqt/8Mrcc6iAYZJuAY4TcZ/BAnqM7hDNvcI6AAAAA8AAAAEcm9vdAAAAAsJTtPWizVY0z0bnmkxNY4DtspQfuTufZmaZv4Qg2SAjA==",
     inSuccessfulContractCall: true,
     operationIndex: 0,
-    transactionIndex: 0,
-    txHash: "0000000000000000000000000000000000000000000000000000000000000000",
+    transactionIndex: 4,
+    txHash: "193a6ba0f7c2365fcd70a164db97234c3a1aa1ec629ac9ac8ffcc2a51f13afe4",
   },
 ];
 
-const PRUNED_LEDGER_LIMIT = 3208000;
+const PRUNED_LEDGER_LIMIT = 3210000;
 
 export async function POST(request: Request): Promise<Response> {
   const body = await request.text();
@@ -160,7 +161,7 @@ export async function POST(request: Request): Promise<Response> {
       ? HISTORICAL_ASP_EVENTS.filter((e) => e.ledger >= startLedger)
       : [];
 
-    const latestLedgerVal = globalMaxLedger || 3328600;
+    const latestLedgerVal = globalMaxLedger || 3329000;
 
     // Determine the cursor paging token
     let cursorVal = "";
