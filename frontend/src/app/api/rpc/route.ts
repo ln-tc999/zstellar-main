@@ -1,155 +1,115 @@
+// Use Edge Runtime: no cold starts, globally distributed, instant response.
+// This is a pure passthrough proxy to the Stellar Soroban RPC — no state, no Node.js deps.
+export const runtime = "edge";
+export const dynamic = "force-dynamic";
+
 const UPSTREAM =
   process.env.STELLAR_RPC_UPSTREAM ?? "https://soroban-testnet.stellar.org";
 
-export const dynamic = "force-dynamic";
-
-// Keep track of the highest ledger sequence we have seen on the server to prevent
-// client-side out-of-sync issues due to lagging RPC load balancer nodes.
-let globalMaxLedger = 0;
-
-// New contracts were deployed at ledger 3329884 — well within the live RPC window.
-// No historical event injection or pruned-range interception is needed.
-// All RPC requests pass directly to the upstream Stellar RPC.
+const CORS_HEADERS = {
+  "content-type": "application/json",
+  "Cross-Origin-Resource-Policy": "cross-origin",
+  "Access-Control-Allow-Origin": "*",
+  "Cache-Control": "no-store",
+};
 
 export async function POST(request: Request): Promise<Response> {
   const body = await request.text();
 
-  let json: {
-    method?: string;
-    id?: unknown;
-  } | null = null;
-
+  let method = "unknown";
   try {
-    json = JSON.parse(body);
+    const j = JSON.parse(body);
+    method = j?.method ?? "unknown";
   } catch {
-    // Ignore JSON parse errors for non-JSON payloads
+    // non-JSON body — pass through anyway
   }
 
-  const method = json?.method || "unknown";
-
-  console.log(
-    `[RPC Proxy] Request: method=${method}, id=${json?.id ?? "none"}`,
-  );
-
-  let lastError = "unknown error";
+  let lastError = "upstream unreachable";
 
   for (let attempt = 0; attempt < 3; attempt++) {
+    let upstream: Response;
     try {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 8000);
-      let upstream: Response;
+      const ac = new AbortController();
+      const t = setTimeout(() => ac.abort(), 9000);
       try {
         upstream = await fetch(UPSTREAM, {
           method: "POST",
           headers: { "content-type": "application/json" },
           body,
-          signal: controller.signal,
+          signal: ac.signal,
         });
       } finally {
-        clearTimeout(timer);
+        clearTimeout(t);
       }
-
-      if (
-        upstream.status === 503 ||
-        upstream.status === 429 ||
-        upstream.status === 502
-      ) {
-        lastError = `upstream status ${upstream.status}`;
-        await new Promise((resolve) => setTimeout(resolve, 300));
-        continue;
-      }
-
-      const text = await upstream.text();
-      // biome-ignore lint/suspicious/noExplicitAny: allow any for dynamic JSON-RPC structure parsing
-      let responseJson: any = null;
-      try {
-        responseJson = JSON.parse(text);
-      } catch {
-        // Non-JSON response (e.g. XDR binary from a misconfigured load-balancer node) — retry
-        lastError = "upstream returned non-JSON response";
-        await new Promise((resolve) => setTimeout(resolve, 300));
-        continue;
-      }
-
-      // Retry on lagging node for getEvents
-      if (
-        responseJson?.error?.message?.includes(
-          "startLedger must be within the ledger range",
-        )
-      ) {
-        lastError = `lagging node: ${responseJson.error.message}`;
-        console.warn(
-          `[RPC Proxy] Lagging node returned startLedger error (attempt ${
-            attempt + 1
-          }). Retrying...`,
-        );
-        await new Promise((resolve) => setTimeout(resolve, 300));
-        continue;
-      }
-
-      // Guard getLatestLedger against lagging nodes
-      if (
-        method === "getLatestLedger" &&
-        responseJson?.result?.sequence != null
-      ) {
-        const seq = Number(responseJson.result.sequence);
-        if (seq < globalMaxLedger && attempt < 5) {
-          lastError = `lagging getLatestLedger: got ${seq}, expected >= ${globalMaxLedger}`;
-          console.warn(
-            `[RPC Proxy] Lagging ledger detected: got ${seq}, expected >= ${globalMaxLedger} (attempt ${
-              attempt + 1
-            }). Retrying...`,
-          );
-          await new Promise((resolve) => setTimeout(resolve, 200));
-          continue;
-        }
-        if (seq > globalMaxLedger) {
-          globalMaxLedger = seq;
-        }
-        // Force the returned sequence to be at least globalMaxLedger
-        if (seq < globalMaxLedger) {
-          responseJson.result.sequence = globalMaxLedger;
-          return new Response(JSON.stringify(responseJson), {
-            status: 200,
-            headers: {
-              "content-type": "application/json",
-              "Cross-Origin-Resource-Policy": "same-origin",
-              "Cache-Control": "no-store",
-            },
-          });
-        }
-      }
-
-      console.log(
-        `[RPC Proxy] Upstream response for method=${method}, status=${upstream.status}`,
-      );
-
-      return new Response(text, {
-        status: upstream.status,
-        headers: {
-          "content-type": "application/json",
-          "Cross-Origin-Resource-Policy": "same-origin",
-          "Cache-Control": "no-store",
-        },
-      });
-    } catch (error) {
-      lastError = error instanceof Error ? error.message : String(error);
-      await new Promise((resolve) => setTimeout(resolve, 300));
+    } catch (err) {
+      lastError = err instanceof Error ? err.message : String(err);
+      await delay(400);
+      continue;
     }
+
+    // Retry on transient server errors
+    if (
+      upstream.status === 429 ||
+      upstream.status === 502 ||
+      upstream.status === 503
+    ) {
+      lastError = `upstream HTTP ${upstream.status}`;
+      await delay(400);
+      continue;
+    }
+
+    const text = await upstream.text();
+
+    // Retry if response is not valid JSON (e.g. XDR binary from a bad LB node)
+    if (!looksLikeJson(text)) {
+      lastError = "upstream returned non-JSON body";
+      await delay(400);
+      continue;
+    }
+
+    // Retry on known Stellar RPC transient errors
+    if (
+      text.includes("startLedger must be within the ledger range") ||
+      text.includes("Please try again")
+    ) {
+      lastError = `stellar RPC transient error (attempt ${attempt + 1})`;
+      await delay(400);
+      continue;
+    }
+
+    return new Response(text, {
+      status: upstream.status,
+      headers: CORS_HEADERS,
+    });
   }
 
-  console.error(
-    `[RPC Proxy] Request failed for method=${method}: ${lastError}`,
-  );
-
+  console.error(`[RPC Proxy] ${method} failed after 3 attempts: ${lastError}`);
   return new Response(
-    JSON.stringify({ jsonrpc: "2.0", id: null, error: { message: lastError } }),
-    {
-      status: 502,
-      headers: {
-        "content-type": "application/json",
-        "Cross-Origin-Resource-Policy": "same-origin",
-      },
-    },
+    JSON.stringify({
+      jsonrpc: "2.0",
+      id: null,
+      error: { code: -32603, message: lastError },
+    }),
+    { status: 502, headers: CORS_HEADERS },
   );
+}
+
+export async function OPTIONS(): Promise<Response> {
+  return new Response(null, {
+    status: 204,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Headers": "content-type",
+    },
+  });
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function looksLikeJson(s: string): boolean {
+  const t = s.trimStart();
+  return t.startsWith("{") || t.startsWith("[");
 }
