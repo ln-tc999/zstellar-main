@@ -10,7 +10,7 @@ import { browserRpcUrl, CONTRACTS, STELLAR } from "./config";
 
 const rpcUrl = browserRpcUrl();
 export const server = new rpc.Server(rpcUrl, {
-  allowHttp: rpcUrl.startsWith("http://"),
+  allowHttp: !rpcUrl.startsWith("https://"),
 });
 export const horizon = new Horizon.Server(STELLAR.horizonUrl);
 
