@@ -8,13 +8,12 @@ export const dynamic = "force-dynamic";
 let globalMaxLedger = 0;
 
 // Since the public Stellar Testnet RPC prunes history older than ~120k ledgers,
-// we pre-populate and inject the historical ASP Merkle tree leaves (0 to 5)
-// that were inserted in the pruned ledger range (3157974 to 3256331).
-// This guarantees that the indexer can sync successfully from the deployment ledger.
+// we pre-populate and inject the historical ASP Merkle tree leaves (0 to 4)
+// that were inserted in the pruned ledger range (3157974 to 3158673).
 //
-// Ledger sequences and event IDs have been adjusted based on actual on-chain coordinates
-// to match the Soroban RPC format exactly. Leaf 5 coordinates match the live RPC
-// response exactly so the client can correctly de-duplicate it upon transition to the upstream.
+// Leaf 5 occurred in ledger 3256332, which is NOT pruned. Therefore, we do not mock Leaf 5.
+// Instead, we let the client fetch Leaf 5 and Leaf 6 directly from the upstream RPC
+// to avoid primary key conflicts in the database and ensure a smooth sync progression.
 const HISTORICAL_ASP_EVENTS = [
   {
     type: "contract",
@@ -91,21 +90,6 @@ const HISTORICAL_ASP_EVENTS = [
     transactionIndex: 0,
     txHash: "0000000000000000000000000000000000000000000000000000000000000000",
   },
-  {
-    type: "contract",
-    ledger: 3256332,
-    ledgerClosedAt: "2026-06-24T10:06:09Z",
-    id: "0013985839444934656-0000000000",
-    pagingToken: "0013985839444934656-0000000000",
-    contractId: "CDD7LJJDO35WCKZK63Q5ADGT76K7DEEL6YHB4DELMLJ4CPTSCALFXE7Q",
-    topic: ["AAAADwAAAAlMZWFmQWRkZWQAAAA="],
-    value:
-      "AAAAEQAAAAEAAAADAAAADwAAAAVpbmRleAAAAAAAAAUAAAAAAAAABQAAAA8AAAAEbGVhZgAAAAstNvG2gPqt/8Mrcc6iAYZJuAY4TcZ/BAnqM7hDNvcI6AAAAA8AAAAEcm9vdAAAAAsJTtPWizVY0z0bnmkxNY4DtspQfuTufZmaZv4Qg2SAjA==",
-    inSuccessfulContractCall: true,
-    operationIndex: 0,
-    transactionIndex: 4,
-    txHash: "193a6ba0f7c2365fcd70a164db97234c3a1aa1ec629ac9ac8ffcc2a51f13afe4",
-  },
 ];
 
 const PRUNED_LEDGER_LIMIT = 3210000;
@@ -163,17 +147,14 @@ export async function POST(request: Request): Promise<Response> {
 
     const latestLedgerVal = globalMaxLedger || 3329000;
 
-    // Determine the cursor paging token. If the event list is empty (e.g. for non-ASP contracts
-    // or when caught up), we advance the cursor to PRUNED_LEDGER_LIMIT to jump over the pruned range.
-    let cursorVal = "";
-    if (events.length > 0) {
-      cursorVal = events[events.length - 1].pagingToken;
-    } else {
-      cursorVal = `${String(PRUNED_LEDGER_LIMIT).padStart(19, "0")}-0000000000`;
-    }
+    // Advance the cursor to PRUNED_LEDGER_LIMIT to jump the indexer over the pruned range
+    const cursorVal = `${String(PRUNED_LEDGER_LIMIT).padStart(
+      19,
+      "0",
+    )}-0000000000`;
 
     console.log(
-      `[RPC Proxy] Intercepted getEvents: startLedger=${startLedger}, returning ${events.length} events, cursor=${cursorVal}`,
+      `[RPC Proxy] Intercepted getEvents: startLedger=${startLedger}, returning ${events.length} events, advancing cursor to=${cursorVal}`,
     );
 
     return new Response(
