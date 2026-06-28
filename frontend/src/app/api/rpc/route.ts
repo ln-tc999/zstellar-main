@@ -7,92 +7,9 @@ export const dynamic = "force-dynamic";
 // client-side out-of-sync issues due to lagging RPC load balancer nodes.
 let globalMaxLedger = 0;
 
-// Since the public Stellar Testnet RPC prunes history older than ~120k ledgers,
-// we pre-populate and inject the historical ASP Merkle tree leaves (0 to 4)
-// that were inserted in the pruned ledger range (3157974 to 3158673).
-//
-// Leaf 5 occurred in ledger 3256332, which is NOT pruned. Therefore, we do not mock Leaf 5.
-// Instead, we let the client fetch Leaf 5 and Leaf 6 directly from the upstream RPC
-// to avoid primary key conflicts in the database and ensure a smooth sync progression.
-const HISTORICAL_ASP_EVENTS = [
-  {
-    type: "contract",
-    ledger: 3158062,
-    ledgerClosedAt: "2026-06-26T12:24:11Z",
-    id: "0013563773008756736-0000000000",
-    pagingToken: "0013563773008756736-0000000000",
-    contractId: "CDD7LJJDO35WCKZK63Q5ADGT76K7DEEL6YHB4DELMLJ4CPTSCALFXE7Q",
-    topic: ["AAAADwAAAAlMZWFmQWRkZWQAAAA="],
-    value:
-      "AAAAEQAAAAEAAAADAAAADwAAAAVpbmRleAAAAAAAAAUAAAAAAAAAAAAAAA8AAAAEbGVhZgAAAAsPhJytjG1OEBI1Y6SUF0bCJMeApeIT5o6sr9UJB6gw6QAAAA8AAAAEcm9vdAAAAAsRqLnVugSEOE22GqHUcFlYUtLwuXbE/X/o29VHY3p56Q==",
-    inSuccessfulContractCall: true,
-    operationIndex: 0,
-    transactionIndex: 0,
-    txHash: "0000000000000000000000000000000000000000000000000000000000000000",
-  },
-  {
-    type: "contract",
-    ledger: 3158076,
-    ledgerClosedAt: "2026-06-26T12:25:00Z",
-    id: "0013563833138302976-0000000000",
-    pagingToken: "0013563833138302976-0000000000",
-    contractId: "CDD7LJJDO35WCKZK63Q5ADGT76K7DEEL6YHB4DELMLJ4CPTSCALFXE7Q",
-    topic: ["AAAADwAAAAlMZWFmQWRkZWQAAAA="],
-    value:
-      "AAAAEQAAAAEAAAADAAAADwAAAAVpbmRleAAAAAAAAAUAAAAAAAAAAQAAAA8AAAAEbGVhZgAAAAsPhJytjG1OEBI1Y6SUF0bCJMeApeIT5o6sr9UJB6gw6QAAAA8AAAAEcm9vdAAAAAsG+4aDfc/wbO7rVugOXXhBpZUS8dW+9422IIGqzI3Zuw==",
-    inSuccessfulContractCall: true,
-    operationIndex: 0,
-    transactionIndex: 0,
-    txHash: "0000000000000000000000000000000000000000000000000000000000000000",
-  },
-  {
-    type: "contract",
-    ledger: 3158130,
-    ledgerClosedAt: "2026-06-26T12:28:00Z",
-    id: "0013564065066536960-0000000000",
-    pagingToken: "0013564065066536960-0000000000",
-    contractId: "CDD7LJJDO35WCKZK63Q5ADGT76K7DEEL6YHB4DELMLJ4CPTSCALFXE7Q",
-    topic: ["AAAADwAAAAlMZWFmQWRkZWQAAAA="],
-    value:
-      "AAAAEQAAAAEAAAADAAAADwAAAAVpbmRleAAAAAAAAAUAAAAAAAAAAgAAAA8AAAAEbGVhZgAAAAsPhJytjG1OEBI1Y6SUF0bCJMeApeIT5o6sr9UJB6gw6QAAAA8AAAAEcm9vdAAAAAsTR6EO9b9xH/T6S1lTCLOMUFULH+zaouc8MbxWPioX+Q==",
-    inSuccessfulContractCall: true,
-    operationIndex: 0,
-    transactionIndex: 0,
-    txHash: "0000000000000000000000000000000000000000000000000000000000000000",
-  },
-  {
-    type: "contract",
-    ledger: 3158379,
-    ledgerClosedAt: "2026-06-26T12:35:00Z",
-    id: "0013565134513397760-0000000000",
-    pagingToken: "0013565134513397760-0000000000",
-    contractId: "CDD7LJJDO35WCKZK63Q5ADGT76K7DEEL6YHB4DELMLJ4CPTSCALFXE7Q",
-    topic: ["AAAADwAAAAlMZWFmQWRkZWQAAAA="],
-    value:
-      "AAAAEQAAAAEAAAADAAAADwAAAAVpbmRleAAAAAAAAAUAAAAAAAAAAwAAAA8AAAAEbGVhZgAAAAsPhJytjG1OEBI1Y6SUF0bCJMeApeIT5o6sr9UJB6gw6QAAAA8AAAAEcm9vdAAAAAsYdncDzkFJc+wKF1Behbrgk+NZtcJbsJ5W+3wJiu0Mcw==",
-    inSuccessfulContractCall: true,
-    operationIndex: 0,
-    transactionIndex: 0,
-    txHash: "0000000000000000000000000000000000000000000000000000000000000000",
-  },
-  {
-    type: "contract",
-    ledger: 3158673,
-    ledgerClosedAt: "2026-06-26T12:45:00Z",
-    id: "0013566397233778688-0000000000",
-    pagingToken: "0013566397233778688-0000000000",
-    contractId: "CDD7LJJDO35WCKZK63Q5ADGT76K7DEEL6YHB4DELMLJ4CPTSCALFXE7Q",
-    topic: ["AAAADwAAAAlMZWFmQWRkZWQAAAA="],
-    value:
-      "AAAAEQAAAAEAAAADAAAADwAAAAVpbmRleAAAAAAAAAUAAAAAAAAABAAAAA8AAAAEbGVhZgAAAAsPhJytjG1OEBI1Y6SUF0bCJMeApeIT5o6sr9UJB6gw6QAAAA8AAAAEcm9vdAAAAAsLTtPWizVY0z0bnmkxNY4DtspQfuTufZmaZv4Qg2SAjA==",
-    inSuccessfulContractCall: true,
-    operationIndex: 0,
-    transactionIndex: 0,
-    txHash: "0000000000000000000000000000000000000000000000000000000000000000",
-  },
-];
-
-const PRUNED_LEDGER_LIMIT = 3210000;
+// New contracts were deployed at ledger 3329884 — well within the live RPC window.
+// No historical event injection or pruned-range interception is needed.
+// All RPC requests pass directly to the upstream Stellar RPC.
 
 export async function POST(request: Request): Promise<Response> {
   const body = await request.text();
@@ -100,103 +17,19 @@ export async function POST(request: Request): Promise<Response> {
   let json: {
     method?: string;
     id?: unknown;
-    params?: {
-      startLedger?: number;
-      filters?: Array<{ contractIds?: string[] }>;
-    };
   } | null = null;
-  let isGetLatestLedger = false;
-  let isGetEvents = false;
-  let startLedger = 0;
-  let isAspContractFilter = false;
 
   try {
     json = JSON.parse(body);
-    if (json?.method === "getLatestLedger") {
-      isGetLatestLedger = true;
-    } else if (json?.method === "getEvents") {
-      isGetEvents = true;
-      startLedger = Number(json?.params?.startLedger || 0);
-      const contractIds =
-        json?.params?.filters
-          ?.flatMap((f) => f.contractIds || [])
-          .filter(Boolean) || [];
-      if (
-        contractIds.includes(
-          "CDD7LJJDO35WCKZK63Q5ADGT76K7DEEL6YHB4DELMLJ4CPTSCALFXE7Q",
-        )
-      ) {
-        isAspContractFilter = true;
-      }
-    }
   } catch {
     // Ignore JSON parse errors for non-JSON payloads
   }
 
+  const method = json?.method || "unknown";
+
   console.log(
-    `[RPC Proxy] Request: method=${json?.method || "unknown"}, id=${
-      json?.id ?? "none"
-    }`,
+    `[RPC Proxy] Request: method=${method}, id=${json?.id ?? "none"}`,
   );
-
-  // Intercept getEvents requests inside the pruned ledger range
-  if (isGetEvents && startLedger < PRUNED_LEDGER_LIMIT) {
-    const events = isAspContractFilter
-      ? HISTORICAL_ASP_EVENTS.filter((e) => e.ledger >= startLedger)
-      : [];
-
-    let latestLedgerVal = 3330000;
-    try {
-      const latestRes = await fetch(UPSTREAM, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          jsonrpc: "2.0",
-          id: "proxy-latest-ledger",
-          method: "getLatestLedger",
-        }),
-      });
-      const latestJson = await latestRes.json();
-      if (latestJson?.result?.sequence != null) {
-        latestLedgerVal = Number(latestJson.result.sequence);
-      }
-    } catch {
-      latestLedgerVal = globalMaxLedger || 3330000;
-    }
-
-    // Advance the cursor to PRUNED_LEDGER_LIMIT to jump the indexer over the pruned range
-    const cursorVal = `${String(PRUNED_LEDGER_LIMIT).padStart(
-      19,
-      "0",
-    )}-0000000000`;
-
-    console.log(
-      `[RPC Proxy] Intercepted getEvents: startLedger=${startLedger}, returning ${events.length} events, advancing cursor to=${cursorVal}`,
-    );
-
-    return new Response(
-      JSON.stringify({
-        jsonrpc: "2.0",
-        id: json?.id || null,
-        result: {
-          events,
-          cursor: cursorVal,
-          latestLedger: latestLedgerVal,
-          oldestLedger: 3157974,
-          latestLedgerCloseTime: String(Math.floor(Date.now() / 1000)),
-          oldestLedgerCloseTime: "1782052423",
-        },
-      }),
-      {
-        status: 200,
-        headers: {
-          "content-type": "application/json",
-          "Cross-Origin-Resource-Policy": "same-origin",
-          "Cache-Control": "no-store",
-        },
-      },
-    );
-  }
 
   let lastError = "unknown error";
 
@@ -223,7 +56,7 @@ export async function POST(request: Request): Promise<Response> {
         // Not JSON
       }
 
-      // Check if we hit a lagging node with getEvents / getTransaction
+      // Retry on lagging node for getEvents
       if (
         responseJson?.error?.message?.includes(
           "startLedger must be within the ledger range",
@@ -239,10 +72,13 @@ export async function POST(request: Request): Promise<Response> {
         continue;
       }
 
-      if (isGetLatestLedger && responseJson?.result?.sequence != null) {
+      // Guard getLatestLedger against lagging nodes
+      if (
+        method === "getLatestLedger" &&
+        responseJson?.result?.sequence != null
+      ) {
         const seq = Number(responseJson.result.sequence);
         if (seq < globalMaxLedger && attempt < 5) {
-          // Lagging node for getLatestLedger, retry to get an up-to-date node
           lastError = `lagging getLatestLedger: got ${seq}, expected >= ${globalMaxLedger}`;
           console.warn(
             `[RPC Proxy] Lagging ledger detected: got ${seq}, expected >= ${globalMaxLedger} (attempt ${
@@ -252,11 +88,10 @@ export async function POST(request: Request): Promise<Response> {
           await new Promise((resolve) => setTimeout(resolve, 200));
           continue;
         }
-        // Update the maximum ledger seen
         if (seq > globalMaxLedger) {
           globalMaxLedger = seq;
         }
-        // Force the returned ledger sequence to be at least globalMaxLedger
+        // Force the returned sequence to be at least globalMaxLedger
         if (seq < globalMaxLedger) {
           responseJson.result.sequence = globalMaxLedger;
           return new Response(JSON.stringify(responseJson), {
@@ -271,9 +106,7 @@ export async function POST(request: Request): Promise<Response> {
       }
 
       console.log(
-        `[RPC Proxy] Upstream response for method=${
-          json?.method || "unknown"
-        }, status=${upstream.status}`,
+        `[RPC Proxy] Upstream response for method=${method}, status=${upstream.status}`,
       );
 
       return new Response(text, {
@@ -291,9 +124,7 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   console.error(
-    `[RPC Proxy] Request failed for method=${
-      json?.method || "unknown"
-    }: ${lastError}`,
+    `[RPC Proxy] Request failed for method=${method}: ${lastError}`,
   );
 
   return new Response(
