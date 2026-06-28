@@ -1032,7 +1032,8 @@ function __wbg_get_imports() {
     },
     __wbg_href_53712054c453ff9f: () =>
       handleError((arg0, arg1) => {
-        const ret = getObject(arg1).href;
+        const obj = getObject(arg1) || (typeof window !== "undefined" ? window.location : null) || (typeof self !== "undefined" ? self.location : null) || {};
+        const ret = obj.href || "";
         const ptr1 = passStringToWasm0(
           ret,
           wasm.__wbindgen_export,
