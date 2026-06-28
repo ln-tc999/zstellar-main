@@ -42,7 +42,9 @@ export async function registerAspMembership(
     networkPassphrase: STELLAR.networkPassphrase,
   });
   if (error || !signedTxXdr) {
-    throw new Error(typeof error === "string" ? error : "ASP register rejected");
+    throw new Error(
+      typeof error === "string" ? error : "ASP register rejected",
+    );
   }
 
   const sent = await server.sendTransaction(
