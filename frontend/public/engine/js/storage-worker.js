@@ -992,7 +992,7 @@ function __wbg_get_imports() {
       const ret = getObject(arg0).headers;
       return addHeapObject(ret);
     },
-    __wbg_href_53712054c453ff9f: () =>
+    __wbg_href_53712054c453ff9f: (...args) =>
       handleError((arg0, arg1) => {
         let obj = getObject(arg1);
         let ret = obj ? obj.href : null;
@@ -1013,7 +1013,7 @@ function __wbg_get_imports() {
         const len1 = WASM_VECTOR_LEN;
         getDataViewMemory0().setInt32(arg0 + 4 * 1, len1, true);
         getDataViewMemory0().setInt32(arg0 + 4 * 0, ptr1, true);
-      }, arguments),
+      }, args),
     __wbg_info_eba996fb48d58831: (arg0, arg1, arg2, arg3) => {
       console.info(
         getObject(arg0),
@@ -1158,7 +1158,7 @@ function __wbg_get_imports() {
         state0.a = 0;
       }
     },
-    __wbg_new_with_base_81c3111cd317efaf: () =>
+    __wbg_new_with_base_81c3111cd317efaf: (...args) =>
       handleError((arg0, arg1, arg2, arg3) => {
         const relative = getStringFromWasm0(arg0, arg1);
         const base = getStringFromWasm0(arg2, arg3);
@@ -1179,7 +1179,7 @@ function __wbg_get_imports() {
             return addHeapObject(ret);
           }
         }
-      }, arguments),
+      }, args),
     __wbg_new_with_length_9011f5da794bf5d9: (arg0) => {
       const ret = new Uint8Array(arg0 >>> 0);
       return addHeapObject(ret);
