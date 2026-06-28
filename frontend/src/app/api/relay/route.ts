@@ -14,6 +14,7 @@ import { STELLAR } from "@/lib/stellar/config";
 // ever sends the WASM-prepared, already-proven transaction here.
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 30;
 
 type RelayBody = {
   txXdr?: string;
