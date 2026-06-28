@@ -11,6 +11,9 @@ let globalMaxLedger = 0;
 // we pre-populate and inject the historical ASP Merkle tree leaves (0 to 5)
 // that were inserted in the pruned ledger range (3157974 to 3256331).
 // This guarantees that the indexer can sync successfully from the deployment ledger.
+//
+// Every event object must include operationIndex, transactionIndex, and txHash
+// as they are required fields in the Soroban events structure.
 const HISTORICAL_ASP_EVENTS = [
   {
     type: "contract",
@@ -23,6 +26,9 @@ const HISTORICAL_ASP_EVENTS = [
     value:
       "AAAAEQAAAAEAAAADAAAADwAAAAVpbmRleAAAAAAAAAUAAAAAAAAAAAAAAA8AAAAEbGVhZgAAAAsPhJytjG1OEBI1Y6SUF0bCJMeApeIT5o6sr9UJB6gw6QAAAA8AAAAEcm9vdAAAAAsRqLnVugSEOE22GqHUcFlYUtLwuXbE/X/o29VHY3p56Q==",
     inSuccessfulContractCall: true,
+    operationIndex: 0,
+    transactionIndex: 0,
+    txHash: "0000000000000000000000000000000000000000000000000000000000000000",
   },
   {
     type: "contract",
@@ -35,6 +41,9 @@ const HISTORICAL_ASP_EVENTS = [
     value:
       "AAAAEQAAAAEAAAADAAAADwAAAAVpbmRleAAAAAAAAAUAAAAAAAAAAQAAAA8AAAAEbGVhZgAAAAsPhJytjG1OEBI1Y6SUF0bCJMeApeIT5o6sr9UJB6gw6QAAAA8AAAAEcm9vdAAAAAsG+4aDfc/wbO7rVugOXXhBpZUS8dW+9422IIGqzI3Zuw==",
     inSuccessfulContractCall: true,
+    operationIndex: 0,
+    transactionIndex: 0,
+    txHash: "0000000000000000000000000000000000000000000000000000000000000000",
   },
   {
     type: "contract",
@@ -47,6 +56,9 @@ const HISTORICAL_ASP_EVENTS = [
     value:
       "AAAAEQAAAAEAAAADAAAADwAAAAVpbmRleAAAAAAAAAUAAAAAAAAAAgAAAA8AAAAEbGVhZgAAAAsPhJytjG1OEBI1Y6SUF0bCJMeApeIT5o6sr9UJB6gw6QAAAA8AAAAEcm9vdAAAAAsTR6EO9b9xH/T6S1lTCLOMUFULH+zaouc8MbxWPioX+Q==",
     inSuccessfulContractCall: true,
+    operationIndex: 0,
+    transactionIndex: 0,
+    txHash: "0000000000000000000000000000000000000000000000000000000000000000",
   },
   {
     type: "contract",
@@ -59,6 +71,9 @@ const HISTORICAL_ASP_EVENTS = [
     value:
       "AAAAEQAAAAEAAAADAAAADwAAAAVpbmRleAAAAAAAAAUAAAAAAAAAAwAAAA8AAAAEbGVhZgAAAAsPhJytjG1OEBI1Y6SUF0bCJMeApeIT5o6sr9UJB6gw6QAAAA8AAAAEcm9vdAAAAAsYdncDzkFJc+wKF1Behbrgk+NZtcJbsJ5W+3wJiu0Mcw==",
     inSuccessfulContractCall: true,
+    operationIndex: 0,
+    transactionIndex: 0,
+    txHash: "0000000000000000000000000000000000000000000000000000000000000000",
   },
   {
     type: "contract",
@@ -71,6 +86,9 @@ const HISTORICAL_ASP_EVENTS = [
     value:
       "AAAAEQAAAAEAAAADAAAADwAAAAVpbmRleAAAAAAAAAUAAAAAAAAABAAAAA8AAAAEbGVhZgAAAAsPhJytjG1OEBI1Y6SUF0bCJMeApeIT5o6sr9UJB6gw6QAAAA8AAAAEcm9vdAAAAAstgoQd4PTdGL7dEXteHTf7UaxiXtLLCQpR/fL+6DXUYA==",
     inSuccessfulContractCall: true,
+    operationIndex: 0,
+    transactionIndex: 0,
+    txHash: "0000000000000000000000000000000000000000000000000000000000000000",
   },
   {
     type: "contract",
@@ -83,6 +101,9 @@ const HISTORICAL_ASP_EVENTS = [
     value:
       "AAAAEQAAAAEAAAADAAAADwAAAAVpbmRleAAAAAAAAAUAAAAAAAAABQAAAA8AAAAEbGVhZgAAAAstNvG2gPqt/8Mrcc6iAYZJuAY4TcZ/BAnqM7hDNvcI6AAAAA8AAAAEcm9vdAAAAAsJTtPWizVY0z0bnmkxNY4DtspQfuTufZmaZv4Qg2SAjA==",
     inSuccessfulContractCall: true,
+    operationIndex: 0,
+    transactionIndex: 0,
+    txHash: "0000000000000000000000000000000000000000000000000000000000000000",
   },
 ];
 
@@ -127,6 +148,12 @@ export async function POST(request: Request): Promise<Response> {
     // Ignore JSON parse errors for non-JSON payloads
   }
 
+  console.log(
+    `[RPC Proxy] Request: method=${json?.method || "unknown"}, id=${
+      json?.id ?? "none"
+    }`,
+  );
+
   // Intercept getEvents requests inside the pruned ledger range
   if (isGetEvents && startLedger < PRUNED_LEDGER_LIMIT) {
     const events = isAspContractFilter
@@ -143,6 +170,10 @@ export async function POST(request: Request): Promise<Response> {
       // Format startLedger as a 19-digit padded paging token
       cursorVal = `${String(startLedger).padStart(19, "0")}-0000000000`;
     }
+
+    console.log(
+      `[RPC Proxy] Intercepted getEvents: startLedger=${startLedger}, returning ${events.length} events, cursor=${cursorVal}`,
+    );
 
     return new Response(
       JSON.stringify({
@@ -185,10 +216,8 @@ export async function POST(request: Request): Promise<Response> {
       }
 
       const text = await upstream.text();
-      let responseJson: {
-        error?: { message?: string };
-        result?: { sequence?: number };
-      } | null = null;
+      // biome-ignore lint/suspicious/noExplicitAny: allow any for dynamic JSON-RPC structure parsing
+      let responseJson: any = null;
       try {
         responseJson = JSON.parse(text);
       } catch {
@@ -242,6 +271,12 @@ export async function POST(request: Request): Promise<Response> {
         }
       }
 
+      console.log(
+        `[RPC Proxy] Upstream response for method=${
+          json?.method || "unknown"
+        }, status=${upstream.status}`,
+      );
+
       return new Response(text, {
         status: upstream.status,
         headers: {
@@ -255,6 +290,12 @@ export async function POST(request: Request): Promise<Response> {
       await new Promise((resolve) => setTimeout(resolve, 300));
     }
   }
+
+  console.error(
+    `[RPC Proxy] Request failed for method=${
+      json?.method || "unknown"
+    }: ${lastError}`,
+  );
 
   return new Response(
     JSON.stringify({ jsonrpc: "2.0", id: null, error: { message: lastError } }),
