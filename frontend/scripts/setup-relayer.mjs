@@ -14,10 +14,10 @@
  * Safe to run repeatedly: an existing relayer is reused and just topped up.
  */
 
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
-import { fileURLToPath } from "node:url";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import { Keypair, Horizon } from "@stellar/stellar-sdk";
+import { fileURLToPath } from "node:url";
+import { Horizon, Keypair } from "@stellar/stellar-sdk";
 
 const HORIZON = "https://horizon-testnet.stellar.org";
 const FRIENDBOT = "https://friendbot.stellar.org";
@@ -39,7 +39,7 @@ function readEnv() {
 
 function writeEnv(updates) {
   const text = existsSync(envPath) ? readFileSync(envPath, "utf8") : "";
-  let lines = text.length ? text.split("\n") : [];
+  const lines = text.length ? text.split("\n") : [];
   for (const [key, value] of Object.entries(updates)) {
     const idx = lines.findIndex((l) => l.startsWith(`${key}=`));
     const entry = `${key}=${value}`;
@@ -86,7 +86,9 @@ async function main() {
     RELAYER_SECRET: keypair.secret(),
     NEXT_PUBLIC_RELAYER_ADDRESS: keypair.publicKey(),
   });
-  console.log("Wrote RELAYER_SECRET + NEXT_PUBLIC_RELAYER_ADDRESS to .env.local");
+  console.log(
+    "Wrote RELAYER_SECRET + NEXT_PUBLIC_RELAYER_ADDRESS to .env.local",
+  );
 
   const server = new Horizon.Server(HORIZON);
   try {
