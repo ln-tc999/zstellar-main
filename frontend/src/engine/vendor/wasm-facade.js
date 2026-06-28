@@ -16,7 +16,8 @@ export async function initializeWasm(rpcUrl) {
 
   initPromise = (async () => {
     const url = `${window.location.origin}/engine/js/web.js`;
-    mod = mod ?? (await import(/* webpackIgnore: true */ /* @vite-ignore */ url));
+    mod =
+      mod ?? (await import(/* webpackIgnore: true */ /* @vite-ignore */ url));
 
     await mod.default();
     const config = new mod.Config(rpcUrl);

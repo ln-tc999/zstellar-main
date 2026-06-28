@@ -120,9 +120,7 @@ export async function POST(request: Request): Promise<Response> {
       signed.push(authorized.toXDR("base64"));
     }
 
-    const patchedTxXdr = needsPatch
-      ? patchAuthEntries(txXdr, signed)
-      : txXdr;
+    const patchedTxXdr = needsPatch ? patchAuthEntries(txXdr, signed) : txXdr;
     const tx = new Transaction(patchedTxXdr, networkPassphrase);
     tx.sign(relayer);
 

@@ -1,17 +1,18 @@
 import {
-    WatchWalletChanges,
-    getAddress,
-    getNetworkDetails,
-    isAllowed,
-    isConnected,
-    requestAccess,
-    setAllowed,
-    signAuthEntry,
-    signTransaction,
-    signMessage
-} from '@stellar/freighter-api';
+  getAddress,
+  getNetworkDetails,
+  isAllowed,
+  isConnected,
+  requestAccess,
+  setAllowed,
+  signAuthEntry,
+  signMessage,
+  signTransaction,
+  WatchWalletChanges,
+} from "@stellar/freighter-api";
 
-import { getHandle } from './wasm-facade.js';
+import { getHandle } from "./wasm-facade.js";
+
 /**
  * Request wallet access and return the active public key.
  *
@@ -20,13 +21,18 @@ import { getHandle } from './wasm-facade.js';
  * @returns {Promise<void>}
  */
 async function assertFreighterInstalled() {
-    const conn = await isConnected();
-    if (conn?.error) {
-        throw normalizeWalletError(conn.error, "Failed to check Freighter connection");
-    }
-    if (!conn?.isConnected) {
-        throw new Error("Freighter not detected. Install from https://www.freighter.app/");
-    }
+  const conn = await isConnected();
+  if (conn?.error) {
+    throw normalizeWalletError(
+      conn.error,
+      "Failed to check Freighter connection",
+    );
+  }
+  if (!conn?.isConnected) {
+    throw new Error(
+      "Freighter not detected. Install from https://www.freighter.app/",
+    );
+  }
 }
 
 /**
@@ -39,32 +45,38 @@ async function assertFreighterInstalled() {
  * @returns {Promise<string|void>} - Connected Stellar public key when requested.
  */
 async function ensureFreighterReady(opts = {}) {
-    const { requestAddress = false } = opts;
+  const { requestAddress = false } = opts;
 
-    await assertFreighterInstalled();
+  await assertFreighterInstalled();
 
-    const allowed = await isAllowed();
-    if (allowed?.error) {
-        throw normalizeWalletError(allowed.error, "Failed to check Freighter allow-list");
+  const allowed = await isAllowed();
+  if (allowed?.error) {
+    throw normalizeWalletError(
+      allowed.error,
+      "Failed to check Freighter allow-list",
+    );
+  }
+
+  if (!allowed?.isAllowed) {
+    const set = await setAllowed();
+    if (set?.error) {
+      throw normalizeWalletError(set.error, "Freighter access rejected");
     }
+  }
 
-    if (!allowed?.isAllowed) {
-        const set = await setAllowed();
-        if (set?.error) {
-            throw normalizeWalletError(set.error, "Freighter access rejected");
-        }
+  if (requestAddress) {
+    const access = await requestAccess();
+    if (access?.error) {
+      throw normalizeWalletError(
+        access.error,
+        "Freighter access request failed",
+      );
     }
-
-    if (requestAddress) {
-        const access = await requestAccess();
-        if (access?.error) {
-            throw normalizeWalletError(access.error, "Freighter access request failed");
-        }
-        if (!access?.address) {
-            throw new Error("No public key returned");
-        }
-        return access.address;
+    if (!access?.address) {
+      throw new Error("No public key returned");
     }
+    return access.address;
+  }
 }
 
 /**
@@ -76,7 +88,7 @@ async function ensureFreighterReady(opts = {}) {
  * @returns {Promise<string>} - Connected Stellar public key (G...).
  */
 export async function connectWallet() {
-    return await ensureFreighterReady({requestAddress: true});
+  return await ensureFreighterReady({ requestAddress: true });
 }
 
 /**
@@ -84,15 +96,18 @@ export async function connectWallet() {
  * @returns {Promise<string>}
  */
 export async function getWalletAddress() {
-    await ensureFreighterReady();
-    const res = await getAddress();
-    if (res?.error) {
-        throw normalizeWalletError(res.error, "Failed to get active Freighter address");
-    }
-    if (!res?.address) {
-        throw new Error("No public key returned");
-    }
-    return res.address;
+  await ensureFreighterReady();
+  const res = await getAddress();
+  if (res?.error) {
+    throw normalizeWalletError(
+      res.error,
+      "Failed to get active Freighter address",
+    );
+  }
+  if (!res?.address) {
+    throw new Error("No public key returned");
+  }
+  return res.address;
 }
 
 /**
@@ -101,19 +116,19 @@ export async function getWalletAddress() {
  * @returns {function} stop watcher
  */
 export function startWalletWatcher(opts) {
-    const { intervalMs = 3000, onChange } = opts || {};
-    const watcher = new WatchWalletChanges(intervalMs);
-    const res = watcher.watch((info) => {
-        try {
-            onChange?.(info);
-        } catch (e) {
-            console.warn('[Wallet] watch callback failed:', e);
-        }
-    });
-    if (res?.error) {
-        throw normalizeWalletError(res.error, 'Failed to start wallet watcher');
+  const { intervalMs = 3000, onChange } = opts || {};
+  const watcher = new WatchWalletChanges(intervalMs);
+  const res = watcher.watch((info) => {
+    try {
+      onChange?.(info);
+    } catch (e) {
+      console.warn("[Wallet] watch callback failed:", e);
     }
-    return () => watcher.stop();
+  });
+  if (res?.error) {
+    throw normalizeWalletError(res.error, "Failed to start wallet watcher");
+  }
+  return () => watcher.stop();
 }
 
 /**
@@ -124,13 +139,16 @@ export function startWalletWatcher(opts) {
  * @returns {Promise<{network: string, networkUrl: string, networkPassphrase: string, sorobanRpcUrl?: string}>}
  */
 export async function getWalletNetwork() {
-    const details = await getNetworkDetails();
-    if (details?.error) {
-        throw normalizeWalletError(details.error, "Failed to get Freighter network details");
-    }
+  const details = await getNetworkDetails();
+  if (details?.error) {
+    throw normalizeWalletError(
+      details.error,
+      "Failed to get Freighter network details",
+    );
+  }
 
-    const { network, networkUrl, networkPassphrase, sorobanRpcUrl } = details;
-    return { network, networkUrl, networkPassphrase, sorobanRpcUrl };
+  const { network, networkUrl, networkPassphrase, sorobanRpcUrl } = details;
+  return { network, networkUrl, networkPassphrase, sorobanRpcUrl };
 }
 
 /**
@@ -143,12 +161,14 @@ export async function getWalletNetwork() {
  * @returns {Error} - Error with `code` set to USER_REJECTED or WALLET_ERROR.
  */
 function normalizeWalletError(error, fallbackMessage = "Wallet error") {
-    const message = error?.message || fallbackMessage;
-    const lower = String(message).toLowerCase();
-    const err = new Error(message);
-    err.code = /reject|declin|denied|cancel/.test(lower) ? 'USER_REJECTED' : 'WALLET_ERROR';
-    err.cause = error;
-    return err;
+  const message = error?.message || fallbackMessage;
+  const lower = String(message).toLowerCase();
+  const err = new Error(message);
+  err.code = /reject|declin|denied|cancel/.test(lower)
+    ? "USER_REJECTED"
+    : "WALLET_ERROR";
+  err.cause = error;
+  return err;
 }
 
 /**
@@ -163,14 +183,17 @@ function normalizeWalletError(error, fallbackMessage = "Wallet error") {
  * @returns {Promise<{signedTxXdr: string, signerAddress: string}>}
  */
 export async function signWalletTransaction(transactionXdr, opts = {}) {
-    await ensureFreighterReady();
+  await ensureFreighterReady();
 
-    const { signedTxXdr, signerAddress, error } = await signTransaction(transactionXdr, opts);
-    if (error) {
-        throw normalizeWalletError(error, 'Transaction signature failed');
-    }
+  const { signedTxXdr, signerAddress, error } = await signTransaction(
+    transactionXdr,
+    opts,
+  );
+  if (error) {
+    throw normalizeWalletError(error, "Transaction signature failed");
+  }
 
-    return { signedTxXdr, signerAddress };
+  return { signedTxXdr, signerAddress };
 }
 
 /**
@@ -185,14 +208,17 @@ export async function signWalletTransaction(transactionXdr, opts = {}) {
  * @returns {Promise<{signedAuthEntry: string | null, signerAddress: string}>}
  */
 export async function signWalletAuthEntry(entryXdr, opts = {}) {
-    await ensureFreighterReady();
+  await ensureFreighterReady();
 
-    const { signedAuthEntry, signerAddress, error } = await signAuthEntry(entryXdr, opts);
-    if (error) {
-        throw normalizeWalletError(error, 'Auth entry signature failed');
-    }
+  const { signedAuthEntry, signerAddress, error } = await signAuthEntry(
+    entryXdr,
+    opts,
+  );
+  if (error) {
+    throw normalizeWalletError(error, "Auth entry signature failed");
+  }
 
-    return { signedAuthEntry, signerAddress };
+  return { signedAuthEntry, signerAddress };
 }
 
 /**
@@ -207,29 +233,34 @@ export async function signWalletAuthEntry(entryXdr, opts = {}) {
  * @returns {Promise<{signedMessage: string | null, signerAddress: string}>}
  */
 export async function signWalletMessage(message, opts = {}) {
-    const { skipEnsureReady = false, ...freighterOpts } = opts || {};
-    if (!skipEnsureReady) {
-        await ensureFreighterReady();
-    }
+  const { skipEnsureReady = false, ...freighterOpts } = opts || {};
+  if (!skipEnsureReady) {
+    await ensureFreighterReady();
+  }
 
-    console.log('[Wallet] Requesting message signature for:', message.substring(0, 30) + '...');
-    const result = await signMessage(message, freighterOpts);
-    console.log('[Wallet] signMessage result:', {
-        hasSignedMessage: !!result?.signedMessage,
-        hasError: !!result?.error,
-        error: result?.error,
-    });
+  console.log(
+    "[Wallet] Requesting message signature for:",
+    message.substring(0, 30) + "...",
+  );
+  const result = await signMessage(message, freighterOpts);
+  console.log("[Wallet] signMessage result:", {
+    hasSignedMessage: !!result?.signedMessage,
+    hasError: !!result?.error,
+    error: result?.error,
+  });
 
-    const { signedMessage, signerAddress, error } = result || {};
-    if (error) {
-        throw normalizeWalletError(error, 'Message signature failed');
-    }
-    // If SignMessage returns null
-    if (!signedMessage) {
-        throw new Error('No signature returned. User may have rejected the request.');
-    }
+  const { signedMessage, signerAddress, error } = result || {};
+  if (error) {
+    throw normalizeWalletError(error, "Message signature failed");
+  }
+  // If SignMessage returns null
+  if (!signedMessage) {
+    throw new Error(
+      "No signature returned. User may have rejected the request.",
+    );
+  }
 
-    return { signedMessage, signerAddress };
+  return { signedMessage, signerAddress };
 }
 
 /**
@@ -245,60 +276,67 @@ export async function signWalletMessage(message, opts = {}) {
  * @throws {Error} If user rejects signature requests
  */
 export async function deriveKeysFromWallet(
-    account,
-    { onStatus, signOptions = {}, skipCacheCheck = false }
+  account,
+  { onStatus, signOptions = {}, skipCacheCheck = false },
 ) {
-    const client = getHandle().webClient;
-    let data = null;
-    let aspSecret = null;
-    if (!skipCacheCheck) {
-        data = await client.getUserKeys(account);
-        aspSecret = await client.getASPSecret(account);
-        if (data && aspSecret?.membershipBlinding) {
-            onStatus?.('Loaded privacy keys and ASP secret from local storage');
-            return {
-                pubKey: data.noteKeypair.public,
-                encryptionKeypair: {
-                    publicKey: data.encryptionKeypair.public,
-                },
-                aspSecret: aspSecret.membershipBlinding,
-            };
-        }
-    }
-
-    onStatus?.('Signature: derive privacy keys and ASP secret (does not move funds)...');
-
-    let derivationResult;
-    try {
-        derivationResult = await signWalletMessage(client.keyDerivationMessage(), {
-            ...signOptions,
-            skipEnsureReady: true,
-        });
-    } catch (e) {
-        if (e.code === 'USER_REJECTED') {
-            throw new Error('Please approve the message signature to derive your privacy keys and ASP secret');
-        }
-        throw e;
-    }
-
-    if (!derivationResult?.signedMessage) {
-        throw new Error('Key derivation signature rejected');
-    }
-
-    const signatureBytes = Uint8Array.from(atob(derivationResult.signedMessage), c => c.charCodeAt(0));
-    await client.deriveAndSaveUserKeys(account, signatureBytes);
-
+  const client = getHandle().webClient;
+  let data = null;
+  let aspSecret = null;
+  if (!skipCacheCheck) {
     data = await client.getUserKeys(account);
     aspSecret = await client.getASPSecret(account);
-    if (!data || !aspSecret?.membershipBlinding) {
-        throw new Error('Derived privacy keys or ASP secret are unavailable');
-    }
-
-    return {
+    if (data && aspSecret?.membershipBlinding) {
+      onStatus?.("Loaded privacy keys and ASP secret from local storage");
+      return {
         pubKey: data.noteKeypair.public,
         encryptionKeypair: {
-            publicKey: data.encryptionKeypair.public,
+          publicKey: data.encryptionKeypair.public,
         },
         aspSecret: aspSecret.membershipBlinding,
-    };
+      };
+    }
+  }
+
+  onStatus?.(
+    "Signature: derive privacy keys and ASP secret (does not move funds)...",
+  );
+
+  let derivationResult;
+  try {
+    derivationResult = await signWalletMessage(client.keyDerivationMessage(), {
+      ...signOptions,
+      skipEnsureReady: true,
+    });
+  } catch (e) {
+    if (e.code === "USER_REJECTED") {
+      throw new Error(
+        "Please approve the message signature to derive your privacy keys and ASP secret",
+      );
+    }
+    throw e;
+  }
+
+  if (!derivationResult?.signedMessage) {
+    throw new Error("Key derivation signature rejected");
+  }
+
+  const signatureBytes = Uint8Array.from(
+    atob(derivationResult.signedMessage),
+    (c) => c.charCodeAt(0),
+  );
+  await client.deriveAndSaveUserKeys(account, signatureBytes);
+
+  data = await client.getUserKeys(account);
+  aspSecret = await client.getASPSecret(account);
+  if (!data || !aspSecret?.membershipBlinding) {
+    throw new Error("Derived privacy keys or ASP secret are unavailable");
+  }
+
+  return {
+    pubKey: data.noteKeypair.public,
+    encryptionKeypair: {
+      publicKey: data.encryptionKeypair.public,
+    },
+    aspSecret: aspSecret.membershipBlinding,
+  };
 }
