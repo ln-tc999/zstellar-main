@@ -145,7 +145,24 @@ export async function POST(request: Request): Promise<Response> {
       ? HISTORICAL_ASP_EVENTS.filter((e) => e.ledger >= startLedger)
       : [];
 
-    const latestLedgerVal = globalMaxLedger || 3329000;
+    let latestLedgerVal = 3330000;
+    try {
+      const latestRes = await fetch(UPSTREAM, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: "proxy-latest-ledger",
+          method: "getLatestLedger",
+        }),
+      });
+      const latestJson = await latestRes.json();
+      if (latestJson?.result?.sequence != null) {
+        latestLedgerVal = Number(latestJson.result.sequence);
+      }
+    } catch {
+      latestLedgerVal = globalMaxLedger || 3330000;
+    }
 
     // Advance the cursor to PRUNED_LEDGER_LIMIT to jump the indexer over the pruned range
     const cursorVal = `${String(PRUNED_LEDGER_LIMIT).padStart(
