@@ -24,7 +24,9 @@ export interface WebClient {
     noteKeypair: { public: string };
     encryptionKeypair: { public: string };
   } | null>;
-  getASPSecret(account: string): Promise<{ membershipBlinding?: string } | null>;
+  getASPSecret(
+    account: string,
+  ): Promise<{ membershipBlinding?: string } | null>;
   getUserNotes(account: string, limit: number): Promise<unknown[] | null>;
   deriveAspUserLeaf(
     membershipBlinding: bigint,
