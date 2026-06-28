@@ -41,7 +41,11 @@ export async function POST(request: Request): Promise<Response> {
         body,
       });
 
-      if (upstream.status === 503 || upstream.status === 429) {
+      if (
+        upstream.status === 503 ||
+        upstream.status === 429 ||
+        upstream.status === 502
+      ) {
         lastError = `upstream status ${upstream.status}`;
         await new Promise((resolve) => setTimeout(resolve, 300));
         continue;
@@ -53,7 +57,10 @@ export async function POST(request: Request): Promise<Response> {
       try {
         responseJson = JSON.parse(text);
       } catch {
-        // Not JSON
+        // Non-JSON response (e.g. XDR binary from a misconfigured load-balancer node) — retry
+        lastError = "upstream returned non-JSON response";
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        continue;
       }
 
       // Retry on lagging node for getEvents
