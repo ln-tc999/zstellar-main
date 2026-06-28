@@ -163,13 +163,13 @@ export async function POST(request: Request): Promise<Response> {
 
     const latestLedgerVal = globalMaxLedger || 3329000;
 
-    // Determine the cursor paging token
+    // Determine the cursor paging token. If the event list is empty (e.g. for non-ASP contracts
+    // or when caught up), we advance the cursor to PRUNED_LEDGER_LIMIT to jump over the pruned range.
     let cursorVal = "";
     if (events.length > 0) {
       cursorVal = events[events.length - 1].pagingToken;
     } else {
-      // Format startLedger as a 19-digit padded paging token
-      cursorVal = `${String(startLedger).padStart(19, "0")}-0000000000`;
+      cursorVal = `${String(PRUNED_LEDGER_LIMIT).padStart(19, "0")}-0000000000`;
     }
 
     console.log(
