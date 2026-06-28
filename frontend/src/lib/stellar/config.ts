@@ -13,7 +13,7 @@ export const STELLAR = {
 
 export function browserRpcUrl(): string {
   if (typeof window !== "undefined") {
-    return "/api/rpc";
+    return `${window.location.origin}/api/rpc`;
   }
   return STELLAR.rpcUrl;
 }
