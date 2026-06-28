@@ -189,7 +189,10 @@ export async function getMyShieldedAddress(
   return `${keys.pubKey}:${keys.encryptionKeypair.publicKey}`;
 }
 
-async function getAspLeaf(address: string, onStatus?: OnStatus): Promise<string> {
+async function getAspLeaf(
+  address: string,
+  onStatus?: OnStatus,
+): Promise<string> {
   await initEngine();
   const keys = await deriveKeysFromWallet(address, {
     onStatus: (message) => onStatus?.({ stage: "keys", message }),
