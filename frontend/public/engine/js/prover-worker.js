@@ -1273,11 +1273,25 @@ function __wbg_get_imports() {
     },
     __wbg_new_with_base_81c3111cd317efaf: () =>
       handleError((arg0, arg1, arg2, arg3) => {
-        const ret = new URL(
-          getStringFromWasm0(arg0, arg1),
-          getStringFromWasm0(arg2, arg3),
-        );
-        return addHeapObject(ret);
+        const relative = getStringFromWasm0(arg0, arg1);
+        const base = getStringFromWasm0(arg2, arg3);
+        try {
+          const ret = new URL(relative, base);
+          return addHeapObject(ret);
+        } catch (e) {
+          console.warn("[zStellar URL Fix] relative:", relative, "base:", base, "error:", e);
+          try {
+            const fallbackBase =
+              (typeof window !== "undefined" ? window.location.origin : null) ||
+              (typeof self !== "undefined" ? self.location.origin : null) ||
+              "https://zstellar-app.vercel.app/";
+            const ret = new URL(relative, fallbackBase);
+            return addHeapObject(ret);
+          } catch (e2) {
+            const ret = new URL(relative);
+            return addHeapObject(ret);
+          }
+        }
       }, arguments),
     __wbg_new_with_length_9011f5da794bf5d9: (arg0) => {
       const ret = new Uint8Array(arg0 >>> 0);
