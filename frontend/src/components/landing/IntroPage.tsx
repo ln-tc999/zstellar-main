@@ -40,7 +40,7 @@ export function IntroPage() {
                     <TbArrowRight className="h-4 w-4" />
                   </Link>
                   <a
-                    href="https://github.com/0xpochita/zStellar"
+                    href="https://github.com/ln-tc999/zstellar-main"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex h-12 cursor-pointer items-center gap-2 rounded-full border border-line bg-fill px-6 text-[15px] font-medium text-fg transition-colors hover:bg-fill-2"
