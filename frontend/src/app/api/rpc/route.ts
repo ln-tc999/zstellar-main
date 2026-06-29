@@ -43,12 +43,21 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   let lastError = "upstream unreachable";
+  const startTime = Date.now();
+  const maxBudgetMs = 25000; // 25 seconds total budget to align with client-side & Edge limits
 
-  for (let attempt = 0; attempt < 3; attempt++) {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const elapsed = Date.now() - startTime;
+    const remainingMs = maxBudgetMs - elapsed;
+    if (remainingMs <= 1000) {
+      break; // No time left for another attempt
+    }
+
     let upstream: Response;
     try {
       const ac = new AbortController();
-      const t = setTimeout(() => ac.abort(), 9000);
+      // Use the remaining budget as the timeout for this fetch
+      const t = setTimeout(() => ac.abort(), remainingMs);
       try {
         upstream = await fetch(UPSTREAM, {
           method: "POST",
@@ -61,33 +70,38 @@ export async function POST(request: Request): Promise<Response> {
       }
     } catch (err) {
       lastError = err instanceof Error ? err.message : String(err);
-      await delay(400);
+      // If it aborted due to timeout, don't sleep, just continue (it will break anyway if remaining time is small)
+      if (lastError.includes("aborted") || lastError.includes("timeout")) {
+        continue;
+      }
+      await delay(300);
       continue;
     }
 
+    // If upstream returns rate limit or temporary server issues, we can try to retry
     if (
       upstream.status === 429 ||
       upstream.status === 502 ||
       upstream.status === 503
     ) {
       lastError = `upstream HTTP ${upstream.status}`;
-      await delay(400);
+      await delay(300);
       continue;
     }
 
     const text = await upstream.text();
 
-    // Retry if response is not valid JSON (e.g. XDR binary from a bad LB node)
+    // Check if the response is not valid JSON (e.g. Cloudflare HTML / XDR binary error)
     if (!looksLikeJson(text)) {
       lastError = "upstream returned non-JSON body";
-      await delay(400);
+      await delay(300);
       continue;
     }
 
-    // Retry on known transient Stellar RPC errors
+    // Check for transient RPC errors inside response JSON
     if (text.includes("Please try again") || text.includes("rate limit")) {
       lastError = `stellar RPC transient error (attempt ${attempt + 1})`;
-      await delay(500);
+      await delay(300);
       continue;
     }
 
@@ -97,7 +111,7 @@ export async function POST(request: Request): Promise<Response> {
     });
   }
 
-  console.error(`[RPC Proxy] Failed after 3 attempts: ${lastError}`);
+  console.error(`[RPC Proxy] Failed: ${lastError}`);
   return new Response(
     JSON.stringify({
       jsonrpc: "2.0",
