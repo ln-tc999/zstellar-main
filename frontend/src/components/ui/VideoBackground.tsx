@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from "react";
 
-// Two looping videos stacked full-screen; we crossfade between them when the
-// theme changes by watching the `.dark` class on <html>. Both are served from
-// /public (same-origin) so they pass the COEP `require-corp` policy that the
-// cross-origin CDN sources would have failed.
-export function VideoBackground() {
+// Two looping videos stacked; we crossfade between them when the theme changes
+// by watching the `.dark` class on <html>. Both are served from /public
+// (same-origin) so they pass the COEP `require-corp` policy that the cross-origin
+// CDN sources would have failed. `fixed` (default) covers the viewport for the
+// app; pass `fixed={false}` to contain it inside a `relative` hero section.
+export function VideoBackground({ fixed = true }: { fixed?: boolean }) {
   const [isDark, setIsDark] = useState(true);
 
   useEffect(() => {
@@ -19,7 +20,9 @@ export function VideoBackground() {
   }, []);
 
   return (
-    <div className="pointer-events-none fixed inset-0 z-0">
+    <div
+      className={`pointer-events-none z-0 ${fixed ? "fixed inset-0" : "absolute inset-0"}`}
+    >
       <video
         aria-hidden
         autoPlay
@@ -27,11 +30,14 @@ export function VideoBackground() {
         loop
         playsInline
         preload="auto"
-        src="/Assets/Videos/bg-light.mp4"
         className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${
           isDark ? "opacity-0" : "opacity-100"
         }`}
-      />
+      >
+        {/* WebM first (≈15× lighter), MP4 fallback for Safari/older browsers. */}
+        <source src="/Assets/Videos/bg-light.webm" type="video/webm" />
+        <source src="/Assets/Videos/bg-light.mp4" type="video/mp4" />
+      </video>
       <video
         aria-hidden
         autoPlay
@@ -39,11 +45,13 @@ export function VideoBackground() {
         loop
         playsInline
         preload="auto"
-        src="/Assets/Videos/bg-dark.mp4"
         className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${
           isDark ? "opacity-100" : "opacity-0"
         }`}
-      />
+      >
+        <source src="/Assets/Videos/bg-dark.webm" type="video/webm" />
+        <source src="/Assets/Videos/bg-dark.mp4" type="video/mp4" />
+      </video>
     </div>
   );
 }
