@@ -9,7 +9,7 @@ const UPSTREAM =
 // startLedger before this is for a pruned or non-existent range, so we
 // rewrite it to start from our actual deployment point. This is needed
 // because the WASM binary has the old deployment ledger hardcoded.
-const NEW_DEPLOYMENT_LEDGER = 3329884;
+const NEW_DEPLOYMENT_LEDGER = 3337836;
 
 const CORS_HEADERS: Record<string, string> = {
   "content-type": "application/json",
