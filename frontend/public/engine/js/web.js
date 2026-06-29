@@ -1,3 +1,31 @@
+const originalLog = console.log;
+const originalDebug = console.debug;
+const originalInfo = console.info;
+const originalWarn = console.warn;
+
+const shouldSuppress = (args) => {
+  for (const arg of args) {
+    if (typeof arg === "string") {
+      if (
+        arg.includes("[STORAGE]") ||
+        arg.includes("[WORKER-") ||
+        arg.includes("[MAIN THREAD]") ||
+        arg.includes("[INDEXER]") ||
+        arg.includes("DEBUG ") ||
+        arg.includes("INFO ")
+      ) {
+        return true;
+      }
+    }
+  }
+  return false;
+};
+
+console.log = (...args) => { if (!shouldSuppress(args)) originalLog(...args); };
+console.debug = (...args) => { if (!shouldSuppress(args)) originalDebug(...args); };
+console.info = (...args) => { if (!shouldSuppress(args)) originalInfo(...args); };
+console.warn = (...args) => { if (!shouldSuppress(args)) originalWarn(...args); };
+
 export class Config {
   __destroy_into_raw() {
     const ptr = this.__wbg_ptr;
