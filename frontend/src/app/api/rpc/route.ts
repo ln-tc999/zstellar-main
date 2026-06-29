@@ -98,6 +98,66 @@ export async function POST(request: Request): Promise<Response> {
       continue;
     }
 
+    // Intercept "startLedger must be within the ledger range" error and return empty events page.
+    // This resolves a bug in the precompiled WASM client where start_ledger is not updated
+    // inside the pagination page loop, causing it to fall behind the cursor and fail to trigger RpcAhead.
+    let isOutOfRangeError = false;
+    let rangeOldest = 0;
+    let rangeNewest = 0;
+    try {
+      const resJson = JSON.parse(text);
+      const errMsg = resJson?.error?.message;
+      if (errMsg?.includes("startLedger must be within the ledger range:")) {
+        const match = errMsg.match(/range:\s*(\d+)\s*-\s*(\d+)/);
+        if (match) {
+          isOutOfRangeError = true;
+          rangeOldest = Number(match[1]);
+          rangeNewest = Number(match[2]);
+        }
+      }
+    } catch {
+      // ignore JSON parse error
+    }
+
+    if (isOutOfRangeError) {
+      let reqId = null;
+      let reqCursor = null;
+      let reqStartLedger = null;
+      try {
+        const reqJson = JSON.parse(body);
+        reqId = reqJson?.id;
+        reqCursor = reqJson?.params?.pagination?.cursor;
+        reqStartLedger = reqJson?.params?.startLedger;
+      } catch {
+        // ignore
+      }
+
+      // If client didn't supply a cursor, generate one from the startLedger or rangeNewest
+      const finalCursor =
+        reqCursor ||
+        `${String(reqStartLedger || rangeNewest).padStart(19, "0")}-0000000000`;
+
+      console.log(
+        `[RPC Proxy] Intercepting startLedger out-of-range error. Returning empty events page at ledger ${rangeNewest} with cursor ${finalCursor}`,
+      );
+
+      return new Response(
+        JSON.stringify({
+          jsonrpc: "2.0",
+          id: reqId,
+          result: {
+            events: [],
+            cursor: finalCursor,
+            latestLedger: rangeNewest,
+            oldestLedger: rangeOldest,
+            latestLedgerCloseTime: String(Math.floor(Date.now() / 1000)),
+            oldestLedgerCloseTime: "1782052423",
+          },
+        }),
+        { status: 200, headers: CORS_HEADERS },
+      );
+    }
+
     // Check for transient RPC errors inside response JSON
     if (text.includes("Please try again") || text.includes("rate limit")) {
       lastError = `stellar RPC transient error (attempt ${attempt + 1})`;
