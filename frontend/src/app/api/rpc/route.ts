@@ -1,12 +1,17 @@
 // Use Edge Runtime: no cold starts, globally distributed, instant response.
-// This is a pure passthrough proxy to the Stellar Soroban RPC — no state, no Node.js deps.
 export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 const UPSTREAM =
   process.env.STELLAR_RPC_UPSTREAM ?? "https://soroban-testnet.stellar.org";
 
-const CORS_HEADERS = {
+// New contracts were deployed at this ledger. Any getEvents request with
+// startLedger before this is for a pruned or non-existent range, so we
+// rewrite it to start from our actual deployment point. This is needed
+// because the WASM binary has the old deployment ledger hardcoded.
+const NEW_DEPLOYMENT_LEDGER = 3329884;
+
+const CORS_HEADERS: Record<string, string> = {
   "content-type": "application/json",
   "Cross-Origin-Resource-Policy": "cross-origin",
   "Access-Control-Allow-Origin": "*",
@@ -14,14 +19,27 @@ const CORS_HEADERS = {
 };
 
 export async function POST(request: Request): Promise<Response> {
-  const body = await request.text();
+  let body = await request.text();
 
-  let method = "unknown";
+  // Rewrite getEvents requests that start before our new deployment ledger.
+  // The WASM binary has the old deployment ledger (~3158xxx) hardcoded; those
+  // ledgers are pruned on testnet. We transparently rewrite to the new
+  // deployment start so the WASM gets a valid, real RPC response.
   try {
-    const j = JSON.parse(body);
-    method = j?.method ?? "unknown";
+    const json = JSON.parse(body);
+    if (
+      json?.method === "getEvents" &&
+      json?.params?.startLedger != null &&
+      Number(json.params.startLedger) < NEW_DEPLOYMENT_LEDGER
+    ) {
+      console.log(
+        `[RPC Proxy] Rewriting startLedger ${json.params.startLedger} → ${NEW_DEPLOYMENT_LEDGER}`,
+      );
+      json.params.startLedger = NEW_DEPLOYMENT_LEDGER;
+      body = JSON.stringify(json);
+    }
   } catch {
-    // non-JSON body — pass through anyway
+    // Not JSON — pass through unchanged
   }
 
   let lastError = "upstream unreachable";
@@ -47,7 +65,6 @@ export async function POST(request: Request): Promise<Response> {
       continue;
     }
 
-    // Retry on transient server errors
     if (
       upstream.status === 429 ||
       upstream.status === 502 ||
@@ -67,13 +84,10 @@ export async function POST(request: Request): Promise<Response> {
       continue;
     }
 
-    // Retry on known Stellar RPC transient errors
-    if (
-      text.includes("startLedger must be within the ledger range") ||
-      text.includes("Please try again")
-    ) {
+    // Retry on known transient Stellar RPC errors
+    if (text.includes("Please try again") || text.includes("rate limit")) {
       lastError = `stellar RPC transient error (attempt ${attempt + 1})`;
-      await delay(400);
+      await delay(500);
       continue;
     }
 
@@ -83,7 +97,7 @@ export async function POST(request: Request): Promise<Response> {
     });
   }
 
-  console.error(`[RPC Proxy] ${method} failed after 3 attempts: ${lastError}`);
+  console.error(`[RPC Proxy] Failed after 3 attempts: ${lastError}`);
   return new Response(
     JSON.stringify({
       jsonrpc: "2.0",
