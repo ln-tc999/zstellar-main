@@ -5,88 +5,156 @@
 <h1 align="center">zStellar</h1>
 
 <p align="center">
-  The privacy layer for payments on Stellar. Deposit, pay, and cash out without revealing amounts or the sender to receiver link.
+  The privacy layer for payments on Stellar — deposit, pay, and cash out without revealing amounts or the sender&nbsp;→&nbsp;receiver link.
 </p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Stellar-Testnet-1b1b1b" alt="Stellar Testnet" />
+  <img src="https://img.shields.io/badge/Next.js-16-1b1b1b" alt="Next.js 16" />
+  <img src="https://img.shields.io/badge/React-19-1b1b1b" alt="React 19" />
+  <img src="https://img.shields.io/badge/ZK-Groth16%20%C2%B7%20BN254-1b1b1b" alt="Groth16 / BN254" />
+  <img src="https://img.shields.io/badge/License-MIT-1b1b1b" alt="MIT" />
+</p>
+
+<p align="center">
+  <a href="#quick-start">Quick Start</a> ·
+  <a href="#how-it-works">How It Works</a> ·
+  <a href="#architecture">Architecture</a> ·
+  <a href="#smart-contracts">Contracts</a> ·
+  <a href="#deployment">Deployment</a>
+</p>
+
+> ⚠️ **Testnet only · unaudited · never use with real funds.** zStellar builds on
+> [Nethermind's Stellar Private Payments PoC](https://github.com/NethermindEth/stellar-private-payments)
+> — research/educational software that inherits its testnet-only constraint.
 
 ---
 
+## Overview
 
-zStellar is a shielded payments dApp built on **Soroban and an on-chain Groth16 verifier on Stellar**. A user deposits a public Stellar asset into a shielded pool, transfers value privately to other users inside the pool, and withdraws back to a public address, all without revealing transfer amounts or the sender to receiver link on-chain. Every zero-knowledge proof is generated **client-side in WebAssembly** (Groth16 over BN254 with a Poseidon2 hash), and private transfers and withdrawals are pushed through a **server-side relayer** so the note owner's address never appears on-chain. zStellar builds on **Nethermind's Stellar Private Payments PoC** and runs on **Stellar Testnet**.
+zStellar is a shielded payments dApp built on **Soroban** and an **on-chain Groth16 verifier on Stellar**. A user deposits a public Stellar asset into a shielded pool, transfers value privately to other users inside the pool, and withdraws back to a public address — all without revealing transfer amounts or the sender → receiver link on-chain.
+
+Every zero-knowledge proof is generated **client-side in WebAssembly** (Groth16 over BN254 with a Poseidon2 hash), and private transfers and withdrawals are pushed through a **server-side relayer** so the note owner's address never appears on-chain.
 
 > **One pool. Three flows. One rule: your balance and your counterparties stay private.**
 >
 > - **Shield** moves a public asset into the pool. Your in-pool balance hides behind note commitments.
-> - **Private Transfer** pays another user inside the pool. The amount and the sender to receiver link stay hidden.
+> - **Private Transfer** pays another user inside the pool. The amount and the sender → receiver link stay hidden.
 > - **Private Withdraw** cashes out to any public Stellar address. The relayer submits, so your address never appears.
 
 ---
 
-## What Makes zStellar Special
+## Table of Contents
 
-### Who This Is For
-
-Meet Sarah. She runs a small remote studio and pays five contractors in stablecoins on Stellar. Stellar is fast and cheap, which she loves. The problem: every payment is public. Anyone with her address can see exactly who she pays, how much, and how often, plus her entire running balance. A competitor scraped her payment history once and used it to poach a contractor by name.
-
-Sarah does not want a private chain. She wants to keep using Stellar, with its liquidity and its assets, but she wants the *amounts* and the *links* between her and her payees to be invisible. She tried moving funds through a fresh wallet for every payment, but that is a manual mess and the graph still connects on the funding hop. She tried an off-chain ledger, but then she is trusting a custodian with her money.
-
-Sarah's problem is not a missing chain. It is that there is no way to send a Stellar payment where the amount and the counterparty stay private, the proof is verified on-chain, and nobody ever holds her funds.
+- [Quick Start](#quick-start)
+- [Why zStellar](#why-zstellar)
+- [The Three Flows](#the-three-flows)
+- [How It Works](#how-it-works)
+- [Architecture](#architecture)
+- [Tech Stack](#tech-stack)
+- [Key Files](#key-files)
+- [Smart Contracts](#smart-contracts)
+- [Deployment](#deployment)
+- [Hackathon](#hackathon)
+- [License](#license)
 
 ---
 
-### The Problem
+## Quick Start
 
-Stellar is fully transparent by design. Every payment, every amount, and every account balance is public and permanently indexed. For real-world payments (payroll, donations, vendor settlements) that transparency is a liability, not a feature.
+> All commands run from `frontend/`. This project uses **pnpm** (not npm) and **Biome** (not ESLint/Prettier).
+
+### Prerequisites
+
+- Node.js 20+ and pnpm
+- A [Freighter](https://www.freighter.app/) wallet on Stellar Testnet
+- A Chromium-based browser — `SharedArrayBuffer` and OPFS are required by the WASM prover
+
+### Install & run
+
+```bash
+git clone https://github.com/ln-tc999/zstellar-main.git
+cd zstellar-main/frontend
+
+pnpm install
+pnpm dev          # http://localhost:3000
+```
+
+Routes: the landing page is at `/`, and the app is at `/app`.
+
+### Relayer (required for Private Transfer / Withdraw)
+
+```bash
+node scripts/setup-relayer.mjs
+```
+
+Generates and Friendbot-funds the relayer, then writes `RELAYER_SECRET` (server-only) and `NEXT_PUBLIC_RELAYER_ADDRESS` to `.env.local`. The secret has no `NEXT_PUBLIC_` prefix, so it never ships to the browser — only `/api/relay` reads it. **Never commit `.env.local`** (it is gitignored).
+
+Optional environment overrides (default to Stellar testnet):
+
+```bash
+NEXT_PUBLIC_STELLAR_RPC_URL=https://soroban-testnet.stellar.org
+NEXT_PUBLIC_STELLAR_HORIZON_URL=https://horizon-testnet.stellar.org
+```
+
+> For production deployment (relayer env vars, keeping the account funded, COOP/COEP, hosting), see **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**.
+
+---
+
+## Why zStellar
+
+Stellar is fully transparent by design. Every payment, amount, and account balance is public and permanently indexed. For real-world payments — payroll, donations, vendor settlements — that transparency is a liability, not a feature.
 
 The existing options fall short:
 
-- **Fresh wallets per payment**: tedious, and the funding hop still links the new wallet back to the source on the public graph
-- **Centralized mixers or custodians**: the user surrenders custody, trusts an operator, and re-introduces a single point of failure and seizure
-- **Generic privacy chains**: leaving Stellar means leaving its assets, liquidity, and tooling behind
-- **Naive "hide the amount" tricks**: without a real zero-knowledge circuit and an on-chain verifier, there is nothing actually proving the transfer is valid while the value stays hidden
+- **Fresh wallets per payment** — tedious, and the funding hop still links the new wallet back to the source on the public graph.
+- **Centralized mixers or custodians** — the user surrenders custody, trusts an operator, and re-introduces a single point of failure and seizure.
+- **Generic privacy chains** — leaving Stellar means leaving its assets, liquidity, and tooling behind.
+- **Naive "hide the amount" tricks** — without a real ZK circuit and an on-chain verifier, nothing actually proves the transfer is valid while the value stays hidden.
 
-And none of them give a compliance-friendly anonymity set, where deposits can be gated by an approval list without de-anonymizing honest users.
+None of them offer a compliance-friendly anonymity set, where deposits can be gated by an approval list without de-anonymizing honest users.
 
 **How might we let a user pay on Stellar with the amount and counterparty hidden, the validity proven on-chain, and custody never surrendered?**
 
+zStellar answers this with six core primitives on the Soroban stack:
+
+1. **Client-side Groth16 proving (WASM)** — proofs are built in the browser by a Rust→WASM prover (arkworks `ark-groth16` / `ark-circom`) compiled from Circom circuits. Secret inputs (note keys, amounts, blindings) never leave the device; the hash is Poseidon2 over BN254, and proving runs off-thread in a Web Worker with OPFS-backed SQLite.
+2. **Shielded note pool** — deposits create note commitments in an on-chain Merkle tree. Spending a note reveals only a nullifier (no double-spend) and a new output commitment — never the amount or the owner.
+3. **Three flows, one entrypoint** — Shield (`ext_amount > 0`), Private Transfer (`== 0`), and Private Withdraw (`< 0`) all route through one `transact` call.
+4. **On-chain verification** — the pool is gated by a Groth16 verifier contract over BN254. The proof binds `ext_data`, so amounts and recipients can't be tampered with after proving.
+5. **ASP membership** — an Association Set Provider keeps a Merkle tree of approved deposits (`insert_leaf`). Honest users prove membership without revealing which leaf is theirs.
+6. **Relayer-submitted privacy** — a server-side relayer keypair (`/api/relay`) becomes the tx source and the `sender` of `transact`, pays the fee, and signs on-chain. The note owner never appears on the ledger.
+
+<details>
+<summary><b>Meet Sarah</b> — the person this is for</summary>
+
+<br>
+
+Sarah runs a small remote studio and pays five contractors in stablecoins on Stellar. Stellar is fast and cheap, which she loves. The problem: every payment is public. Anyone with her address can see exactly who she pays, how much, and how often, plus her entire running balance. A competitor scraped her payment history once and used it to poach a contractor by name.
+
+Sarah does not want a private chain. She wants to keep using Stellar — its liquidity and its assets — but she wants the *amounts* and the *links* between her and her payees to be invisible. Fresh wallets per payment are a manual mess and the graph still connects on the funding hop. An off-chain ledger means trusting a custodian with her money.
+
+Her problem is not a missing chain. It is that there is no way to send a Stellar payment where the amount and the counterparty stay private, the proof is verified on-chain, and nobody ever holds her funds.
+
+</details>
+
 ---
 
-### The Solution
-
-zStellar solves this with six core primitives built on top of the Soroban stack:
-
-**1. Client-Side Groth16 Proving (WASM)** : Every proof is built in the browser by a Rust to WebAssembly prover (arkworks `ark-groth16` and `ark-circom`) compiled from Circom circuits. The secret inputs (note keys, amounts, blindings) never leave the device. The hash is **Poseidon2 over BN254**, and the heavy proving runs off the main thread in a dedicated Web Worker with OPFS-backed SQLite for note storage.
-
-**2. Shielded Note Pool (Commitments and Nullifiers)** : Deposits create **note commitments** in an on-chain Merkle tree. Spending a note reveals only a **nullifier** (so it cannot be double-spent) and a new output commitment, never the amount or the owner. Your shielded balance is the sum of your unspent notes and is visible only to you.
-
-**3. Three Flows: Shield, Private Transfer, Private Withdraw** : One pool covers the full lifecycle. Shield is public to shielded (`ext_amount > 0`). Private Transfer is shielded to shielded inside the pool (`ext_amount == 0`). Private Withdraw is shielded to a public Stellar address (`ext_amount < 0`).
-
-**4. On-Chain Verification via a Single `transact` Entrypoint** : The pool contract exposes one method, `transact(proof, ext_data, sender)`, gated by an **on-chain Groth16 verifier contract**. Deposits, transfers, and withdrawals are the same call with a different signed `ext_amount`. The proof binds `ext_data`, so amounts and recipients cannot be tampered with after proving.
-
-**5. ASP Membership (Compliance-Friendly Anonymity Set)** : An Association Set Provider keeps a Merkle tree of approved deposits (`insert_leaf`). Honest users prove membership in the approved set without revealing which leaf is theirs, so the anonymity set can be curated without de-anonymizing anyone.
-
-**6. Relayer-Submitted Privacy** : Private transfers and withdrawals are submitted by a dedicated **server-side relayer keypair** (`/api/relay`). The relayer becomes the Soroban transaction source and the `sender` argument of `transact`, pays the fee, and signs on-chain. The note owner signs nothing for submission and never appears on the ledger. The secret stays server-only and never reaches the browser.
-
----
-
-## Three Shielded Flows
+## The Three Flows
 
 zStellar runs three flows through one pool and one `transact` entrypoint. The only thing that changes is the signed `ext_amount` and who submits.
 
 |  | **Shield** | **Private Transfer** | **Private Withdraw** |
 |---|---|---|---|
-| **Direction** | public to shielded | shielded to shielded | shielded to public |
+| **Direction** | public → shielded | shielded → shielded | shielded → public |
 | **`ext_amount`** | `> 0` | `== 0` | `< 0` |
 | **Recipient field** | none (your own notes) | recipient's shielded address (note key + encryption key) | public Stellar address (`G...`) |
 | **Submitter** | your wallet (token pull needs your auth) | relayer | relayer |
 | **On-chain effect** | tokens pulled in, note commitment added | nullifier spent, new note for recipient | nullifier spent, tokens leave the pool |
 | **Result** | balance now shielded | recipient's balance stays shielded | funds public again in the target wallet |
-| **What stays hidden** | your in-pool balance | amount and the sender to receiver link | amount and your submitter address |
+| **What stays hidden** | your in-pool balance | amount and the sender → receiver link | amount and your submitter address |
 
-### Why all three matter
-
-Shield is the on-ramp into privacy. Transfer is the everyday case (pay someone, stay private). Withdraw is the off-ramp back to public XLM. Together they cover the entire payment lifecycle without ever forcing the user off Stellar.
-
-### Decision per action
+**Why all three matter:** Shield is the on-ramp into privacy, Transfer is the everyday case (pay someone, stay private), and Withdraw is the off-ramp back to public XLM — together covering the full payment lifecycle without ever forcing the user off Stellar.
 
 ```
 if action == "shield":
@@ -99,78 +167,49 @@ if action == "withdraw":
 
 ---
 
-## Features
+## How It Works
 
-- **Client-Side Zero-Knowledge Proving**: Groth16 proofs over BN254 with a Poseidon2 hash, generated in-browser via a Rust to WASM prover. Secrets never leave the device.
-- **Three Flows, One Pool**: Shield, Private Transfer, and Private Withdraw all route through a single Soroban `transact` entrypoint with a verifier-gated proof.
-- **Shielded Balance**: Your in-pool balance is the sum of your unspent notes, decrypted locally and shown only to you. The public ledger sees only commitments and nullifiers.
-- **Always-On Private Relay**: Private transfers and withdrawals are submitted by a server-side relayer keypair, so your address never appears on-chain and you pay no fee for submission.
-- **Receive by Shielded Address**: Share a shielded address (note key plus encryption key) so anyone can pay you privately inside the pool without learning your Stellar account.
-- **ASP Membership Auto-Register**: First deposit auto-registers the user into the Association Set Provider Merkle tree (`insert_leaf`) so proofs of membership succeed without manual steps.
-- **Freighter Wallet Integration**: Connect, derive keys from one signature, fund via Friendbot, and disconnect, all from the navbar.
-- **One-Click Testnet Faucet**: Fund the connected account with test XLM from the UI.
-- **Stepper Transaction UX**: A framer-motion stepper walks through Preparing, Generating ZK proof, Signing, and Submitting, with success and error states and a direct explorer link to the transaction hash.
-- **Token Selector**: Searchable token modal (XLM and USDC) with per-token balances.
-- **Animated Prism Background**: A WebGL (ogl) animated backdrop with a black and gray brand theme.
-- **Cross-Origin Isolation**: COOP and COEP headers enable SharedArrayBuffer and OPFS for the WASM prover and worker storage.
+**User flow** — `Connect → Shield → Receive / Pay privately → Withdraw to public`
 
----
+1. **Connect** Freighter on Testnet and fund with the in-app faucet if needed.
+2. **Shield** a public asset into the pool (you sign; tokens are pulled in and a note commitment is created).
+3. **Receive** a shielded address from your Receive modal, or **Pay** a contact's shielded address with a Private Transfer.
+4. **Withdraw** any time to a public `G...` address; the relayer submits, so your address never appears.
+5. **Track** every action through the proof stepper and the View-transaction explorer link.
 
-## Tech Stack
+**Proof flow (browser)** — `Derive keys → Build circuit inputs → Prove (Groth16) → Prepare Soroban tx`
 
-| Layer | Technology |
-|---|---|
-| Frontend | Next.js 16, React 19, TypeScript, Tailwind CSS v4 |
-| Tooling | pnpm, Biome, Turbopack |
-| Wallet | Freighter (`@stellar/freighter-api`) |
-| Blockchain | Stellar Testnet (Soroban) |
-| Stellar SDK | `@stellar/stellar-sdk` v14 |
-| Zero-Knowledge | Groth16 (arkworks `ark-groth16` and `ark-circom`), Circom circuits, Poseidon2 over BN254 |
-| Prover Runtime | Rust to WebAssembly, Web Workers, OPFS-backed SQLite |
-| Relayer | Next.js Route Handler signing with a Stellar `Keypair` (server-only secret) |
-| Animation | motion (framer-motion); WebGL via `ogl` |
-| Icons | `react-icons` |
-| Base PoC | Nethermind Stellar Private Payments (pool, ASP, Groth16 verifier) |
+1. **Derive keys** from a single Freighter signature (cached locally in OPFS).
+2. **Build inputs** from your unspent notes, the target amount, and the recipient.
+3. **Prove** Groth16 over BN254 with Poseidon2, off the main thread in a Web Worker.
+4. **Prepare** the Soroban `transact` invocation with the proof and `ext_data` bound to the proof.
 
----
+**On-chain flow**
 
-## Stellar and ZK Integration
-
-zStellar is built directly on top of **Soroban**, an **on-chain Groth16 verifier**, and a **client-side Rust to WASM prover**. Every private action is a proof produced in the browser and verified on-chain by a Stellar contract. Here are the core integration points:
-
-| Component | File | Description |
-|---|---|---|
-| **Engine Wrapper** | [`frontend/src/engine/index.ts`](./frontend/src/engine/index.ts) | Typed wrapper over the WASM `WebClient`: `shield`, `transfer`, `withdraw`, `getShieldedBalance`, `getMyShieldedAddress`, plus relayer wiring |
-| **WASM Facade** | [`frontend/src/engine/vendor/wasm-facade.js`](./frontend/src/engine/vendor/wasm-facade.js) | Loads and caches the WASM `WebClient`, wires the prover and storage Web Workers |
-| **Stellar Submit Helper** | [`frontend/src/engine/vendor/stellar.js`](./frontend/src/engine/vendor/stellar.js) | Signs and submits a WASM-prepared Soroban transaction, patching auth entries and polling for confirmation |
-| **Key Derivation** | [`frontend/src/engine/vendor/wallet.js`](./frontend/src/engine/vendor/wallet.js) | Derives note and encryption keys from a single Freighter signature |
-| **WebClient Types** | [`frontend/src/engine/types.ts`](./frontend/src/engine/types.ts) | TypeScript interface for the WASM `executeDeposit` / `executeTransfer` / `executeWithdraw` API |
-| **Stellar Config** | [`frontend/src/lib/stellar/config.ts`](./frontend/src/lib/stellar/config.ts) | Testnet RPC, network passphrase, and the deployed contract addresses |
-| **Stellar Client** | [`frontend/src/lib/stellar/client.ts`](./frontend/src/lib/stellar/client.ts) | `rpc.Server`, pool Merkle root reads, XLM balance, Friendbot funding |
-| **ASP Register** | [`frontend/src/lib/stellar/register.ts`](./frontend/src/lib/stellar/register.ts) | Builds and submits `insert_leaf` to register the user in the ASP membership tree |
-| **Relayer Route** | [`frontend/src/app/api/relay/route.ts`](./frontend/src/app/api/relay/route.ts) | Server-side: signs the `sender` auth entry and the tx envelope with the relayer `Keypair`, submits to testnet |
-| **Relayer Setup** | [`frontend/scripts/setup-relayer.mjs`](./frontend/scripts/setup-relayer.mjs) | Generates and Friendbot-funds the relayer, writes `RELAYER_SECRET` and `NEXT_PUBLIC_RELAYER_ADDRESS` to `.env.local` |
-| **Action Panel** | [`frontend/src/components/pages/(main)/ActionPanel.tsx`](./frontend/src/components/pages/\(main\)/ActionPanel.tsx) | The main UI: Shield, Private Transfer, Private Withdraw, with the proof stepper and the always-on relay badge |
-| **Wallet Feature** | [`frontend/src/features/wallet/`](./frontend/src/features/wallet/) | Freighter connect, disconnect, faucet, and the shielded-address Receive modal |
-
-### Stellar Endpoints in Use
-
-| API | Endpoint | Purpose |
-|---|---|---|
-| Soroban RPC | `simulateTransaction` | Simulate `transact` / `insert_leaf` to build auth and the resource footprint |
-| Soroban RPC | `sendTransaction` | Submit the signed Soroban transaction to testnet |
-| Soroban RPC | `getTransaction` | Poll for `SUCCESS` / `FAILED` confirmation by hash |
-| Friendbot | `GET /?addr=G...` | Fund testnet accounts (faucet and relayer setup) |
-| Horizon | `GET /accounts/{id}` | Read account balances during relayer setup |
-| Freighter | `getAddress`, `signTransaction`, `signAuthEntry` | Wallet connect and signing of the user-submitted deposit |
-
-RPC: `https://soroban-testnet.stellar.org` · Network passphrase: `Test SDF Network ; September 2015`
+```
+Submitter                 Pool Contract (Soroban)          Verifier
+   |                            |                              |
+Shield: user signs ----------->|                              |
+   |                            |-- verify Groth16 proof ----->|
+   |                            |-- apply ext_amount > 0       |
+   |                            |-- add note commitment        |
+   |                            |                              |
+Transfer/Withdraw:             |                              |
+relayer signs ---------------->|                              |
+   |                            |-- verify Groth16 proof ----->|
+   |                            |-- spend nullifier            |
+   |                            |-- ext_amount == 0: new note  |
+   |                            |-- ext_amount < 0: funds out  |
+   |                            |                              |
+   <-- tx hash. Shield/Transfer keep funds shielded.          |
+   <-- Withdraw sends public XLM to the target address.       |
+```
 
 ---
 
 ## Architecture
 
-### System Flow
+### System flow
 
 ```mermaid
 sequenceDiagram
@@ -201,7 +240,7 @@ sequenceDiagram
     end
 ```
 
-### Proof Pipeline
+### Proof pipeline
 
 ```mermaid
 graph TD
@@ -232,99 +271,61 @@ All three flows share the prover and the `transact` entrypoint. Only the signed 
 
 ---
 
-## Setup
+## Tech Stack
 
-### Prerequisites
-
-- Node.js 20+, pnpm
-- A Freighter wallet on Stellar Testnet
-- Modern browser with SharedArrayBuffer and OPFS (Chrome or Edge recommended)
-
-### Frontend Setup
-
-```bash
-git clone https://github.com/0xpochita/zStellar.git
-cd zStellar/frontend
-
-# Install dependencies
-pnpm install
-
-# Configure environment variables in .env.local:
-#   NEXT_PUBLIC_STELLAR_RPC_URL=https://soroban-testnet.stellar.org
-#   NEXT_PUBLIC_STELLAR_HORIZON_URL=https://horizon-testnet.stellar.org
-```
-
-### Relayer Setup
-
-```bash
-# Generate and fund the always-on private relayer.
-# Writes RELAYER_SECRET (server-only) and NEXT_PUBLIC_RELAYER_ADDRESS to .env.local.
-node scripts/setup-relayer.mjs
-```
-
-`RELAYER_SECRET` has no `NEXT_PUBLIC_` prefix, so it never ships to the browser. Only `/api/relay` reads it. Never commit `.env.local` (it is gitignored).
-
-### Run
-
-```bash
-pnpm dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) in your browser. On deploy (for example Vercel), set `RELAYER_SECRET` and `NEXT_PUBLIC_RELAYER_ADDRESS` as project environment variables.
+| Layer | Technology |
+|---|---|
+| Frontend | Next.js 16, React 19, TypeScript, Tailwind CSS v4 |
+| Tooling | pnpm, Biome, Turbopack |
+| Wallet | Freighter (`@stellar/freighter-api`) |
+| Blockchain | Stellar Testnet (Soroban) |
+| Stellar SDK | `@stellar/stellar-sdk` v14 |
+| Zero-Knowledge | Groth16 (arkworks `ark-groth16` / `ark-circom`), Circom circuits, Poseidon2 over BN254 |
+| Prover Runtime | Rust → WebAssembly, Web Workers, OPFS-backed SQLite |
+| Relayer | Next.js Route Handler signing with a Stellar `Keypair` (server-only secret) |
+| Animation | motion (framer-motion); WebGL via `ogl` |
+| Icons | `react-icons` |
+| Base PoC | Nethermind Stellar Private Payments (pool, ASP, Groth16 verifier) |
 
 ---
 
-## How It Works
+## Key Files
 
-### User Flow
+Every private action is a proof produced in the browser and verified on-chain by a Stellar contract. The core integration points:
 
-```
-Connect Freighter -> Shield -> Receive / Pay privately -> Withdraw to public
-```
+| Component | File | Description |
+|---|---|---|
+| **Engine Wrapper** | [`frontend/src/engine/index.ts`](./frontend/src/engine/index.ts) | Typed wrapper over the WASM `WebClient`: `shield`, `transfer`, `withdraw`, `getShieldedBalance`, `getMyShieldedAddress`, plus relayer wiring |
+| **WASM Facade** | [`frontend/src/engine/vendor/wasm-facade.js`](./frontend/src/engine/vendor/wasm-facade.js) | Loads and caches the WASM `WebClient`, wires the prover and storage Web Workers |
+| **Stellar Submit Helper** | [`frontend/src/engine/vendor/stellar.js`](./frontend/src/engine/vendor/stellar.js) | Signs and submits a WASM-prepared Soroban transaction, patching auth entries and polling for confirmation |
+| **Key Derivation** | [`frontend/src/engine/vendor/wallet.js`](./frontend/src/engine/vendor/wallet.js) | Derives note and encryption keys from a single Freighter signature |
+| **WebClient Types** | [`frontend/src/engine/types.ts`](./frontend/src/engine/types.ts) | TypeScript interface for the WASM `executeDeposit` / `executeTransfer` / `executeWithdraw` API |
+| **Stellar Config** | [`frontend/src/lib/stellar/config.ts`](./frontend/src/lib/stellar/config.ts) | Testnet RPC, network passphrase, and the deployed contract addresses |
+| **Stellar Client** | [`frontend/src/lib/stellar/client.ts`](./frontend/src/lib/stellar/client.ts) | `rpc.Server`, pool Merkle root reads, XLM balance, Friendbot funding |
+| **ASP Register** | [`frontend/src/lib/stellar/register.ts`](./frontend/src/lib/stellar/register.ts) | Builds and submits `insert_leaf` to register the user in the ASP membership tree |
+| **Relayer Route** | [`frontend/src/app/api/relay/route.ts`](./frontend/src/app/api/relay/route.ts) | Server-side: signs the `sender` auth entry and the tx envelope with the relayer `Keypair`, submits to testnet |
+| **Relayer Setup** | [`frontend/scripts/setup-relayer.mjs`](./frontend/scripts/setup-relayer.mjs) | Generates and Friendbot-funds the relayer, writes `RELAYER_SECRET` and `NEXT_PUBLIC_RELAYER_ADDRESS` to `.env.local` |
+| **Action Panel** | [`frontend/src/components/pages/(main)/ActionPanel.tsx`](./frontend/src/components/pages/\(main\)/ActionPanel.tsx) | The main UI: Shield, Private Transfer, Private Withdraw, with the proof stepper and the always-on relay badge |
+| **Wallet Feature** | [`frontend/src/features/wallet/`](./frontend/src/features/wallet/) | Freighter connect, disconnect, faucet, and the shielded-address Receive modal |
 
-1. **Connect** Freighter on Testnet and fund with the in-app faucet if needed
-2. **Shield** a public asset into the pool (you sign; tokens are pulled in and a note commitment is created)
-3. **Receive** a shielded address from your Receive modal, or **Pay** a contact's shielded address with a Private Transfer
-4. **Withdraw** any time to a public `G...` address; the relayer submits, so your address never appears
-5. **Track** every action through the proof stepper and the View transaction explorer link
+### Stellar endpoints in use
 
-### Proof Flow (Browser)
+| API | Endpoint | Purpose |
+|---|---|---|
+| Soroban RPC | `simulateTransaction` | Simulate `transact` / `insert_leaf` to build auth and the resource footprint |
+| Soroban RPC | `sendTransaction` | Submit the signed Soroban transaction to testnet |
+| Soroban RPC | `getTransaction` | Poll for `SUCCESS` / `FAILED` confirmation by hash |
+| Friendbot | `GET /?addr=G...` | Fund testnet accounts (faucet and relayer setup) |
+| Horizon | `GET /accounts/{id}` | Read account balances during relayer setup |
+| Freighter | `getAddress`, `signTransaction`, `signAuthEntry` | Wallet connect and signing of the user-submitted deposit |
 
-```
-Derive keys -> Build circuit inputs -> Prove (Groth16) -> Prepare Soroban tx
-```
-
-1. **Derive keys** from a single Freighter signature (cached locally in OPFS)
-2. **Build inputs** from your unspent notes, the target amount, and the recipient
-3. **Prove** Groth16 over BN254 with Poseidon2, off the main thread in a Web Worker
-4. **Prepare** the Soroban `transact` invocation with the proof and `ext_data` bound to the proof
-
-### On-Chain Flow
-
-```
-Submitter                 Pool Contract (Soroban)          Verifier
-   |                            |                              |
-Shield: user signs ----------->|                              |
-   |                            |-- verify Groth16 proof ----->|
-   |                            |-- apply ext_amount > 0       |
-   |                            |-- add note commitment        |
-   |                            |                              |
-Transfer/Withdraw:             |                              |
-relayer signs ---------------->|                              |
-   |                            |-- verify Groth16 proof ----->|
-   |                            |-- spend nullifier            |
-   |                            |-- ext_amount == 0: new note  |
-   |                            |-- ext_amount < 0: funds out  |
-   |                            |                              |
-   <-- tx hash. Shield/Transfer keep funds shielded.          |
-   <-- Withdraw sends public XLM to the target address.       |
-```
+RPC: `https://soroban-testnet.stellar.org` · Network passphrase: `Test SDF Network ; September 2015`
 
 ---
 
-## Smart Contract Details
+## Smart Contracts
 
-### Contract Addresses (Stellar Testnet)
+### Addresses (Stellar Testnet)
 
 | Contract | Address | Description |
 |---|---|---|
@@ -335,26 +336,19 @@ relayer signs ---------------->|                              |
 | `Token (XLM SAC)` | `CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC` | The shielded asset (native XLM via the Stellar Asset Contract) |
 | `Deployer` | `GCWXHHOBERTQBNCQDK7B4LNUZH72CF7BLWP6XUL4KSRYOOCOIISSFBBT` | Account that deployed the pool |
 
-### Key Functions
-
-#### Pool
+### Key functions
 
 ```
+# Pool
 transact(proof, ext_data, sender)    one entrypoint for deposit / transfer / withdraw.
                                       ext_amount > 0 deposit, == 0 transfer, < 0 withdraw.
                                       sender.require_auth() is unconditional; the proof binds ext_data.
-```
 
-#### ASP Membership
-
-```
+# ASP Membership
 insert_leaf(leaf)                     append an approved-deposit leaf to the membership Merkle tree
-set_admin_insert_only(admin_only)     gate whether insert_leaf is admin-only (set false for permissionless register)
-```
+set_admin_insert_only(admin_only)     gate insert_leaf (set false for permissionless register)
 
-#### Frontend Engine
-
-```
+# Frontend Engine
 shield(address, amount)                          public to shielded (user signs the token pull)
 transfer(address, amount, noteKey, encKey, _, r) shielded to shielded (relayer submits when r is true)
 withdraw(address, recipient, amount, _, r)       shielded to public (relayer submits when r is true)
@@ -362,11 +356,24 @@ getShieldedBalance(address)                      sum of unspent notes, decrypted
 getMyShieldedAddress(address)                    note key + encryption key to share for Receive
 ```
 
-> For the proof system, circuits, and contract internals, see [Nethermind's Stellar Private Payments PoC](https://github.com/NethermindEth/stellar-private-payments) which zStellar builds on.
+> For the proof system, circuits, and contract internals, see [Nethermind's Stellar Private Payments PoC](https://github.com/NethermindEth/stellar-private-payments).
 
 ---
 
-## Hackathon Submission
+## Deployment
+
+There is **no separate backend to deploy** — the relayer is a serverless Route Handler (`/api/relay`) that ships with the web app, and the smart contracts are already live on Testnet. Deploying means:
+
+1. Set `RELAYER_SECRET` (secret) and `NEXT_PUBLIC_RELAYER_ADDRESS` as environment variables on your host.
+2. Keep the relayer account funded (testnet: Friendbot).
+3. Use a host that supports Next.js serverless / Node runtime (e.g. Vercel) — **not** static export.
+4. Keep the COOP/COEP headers from `next.config.ts` active (required for `SharedArrayBuffer` / OPFS).
+
+Full walkthrough and checklist: **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**.
+
+---
+
+## Hackathon
 
 | | |
 |---|---|
@@ -385,4 +392,4 @@ zStellar builds on Nethermind's Stellar Private Payments PoC and its circuits, w
 
 ---
 
-> Your balance and your counterparties stay private. zStellar.
+<p align="center"><i>Your balance and your counterparties stay private. zStellar.</i></p>
